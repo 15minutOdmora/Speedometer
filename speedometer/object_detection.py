@@ -2,19 +2,33 @@ from speedometer.Observer import Observer, Subject
 
 
 class ObjectDetection(Observer):
-    def __init__(self, speedometer, roi=None, typeofdetection="BackgroundSubstractorMOG2"):
+    def __init__(self, roi=None, typeofdetection="BackgroundSubstractorMOG2"):
         """
         :param speedometer:
         :param roi: list[y1, y2, x1, x1]  Where x, y is point of rectangle
         """
-        self.som = speedometer  # spedometer object
+        self._som = None  # spedometer object
+        self._typeofdetection_str = typeofdetection
+        self.object_detector_type = None  # Is set in the setter of _typeofdetection_str
         self.roi = roi
-        if typeofdetection == "BackgroundSubstractorMOG2":
-            self.object_detector_type = self.som.cv2.createBackgroundSubtractorMOG2(history=200, varThreshold=300)  # TODO fix variables
-        elif typeofdetection == "absdiff":
-            self.object_detector_type = self.som.cv2.absdiff(self.som.first_frame, self.som.frame)
-        elif typeofdetection == "createBackgroundSubtractorKNN":
-            self.object_detector_type = self.som.cv2.createBackgroundSubtractorKNN(history=200, dist2Threshold=300)
+
+    @property
+    def som(self):
+        return self._som
+
+    @som.setter
+    def som(self, spedoometer):
+        self._som = spedoometer
+
+    def set_object_detector_type(self):
+        # TODO fix: without use of function
+        if self.object_detector_type is None:
+            if self._typeofdetection_str == "BackgroundSubstractorMOG2":
+                self.object_detector_type = self.som.cv2.createBackgroundSubtractorMOG2(history=200,varThreshold=300)  # TODO fix variables
+            elif self._typeofdetection_str == "absdiff":
+                self.object_detector_type = self.som.cv2.absdiff(self.som.first_frame, self.som.frame)
+            elif self._typeofdetection_str == "createBackgroundSubtractorKNN":
+                self.object_detector_type = self.som.cv2.createBackgroundSubtractorKNN(history=200, dist2Threshold=300)
 
     def update(self, notification_type) -> None:
         """
@@ -53,7 +67,7 @@ class ObjectDetection(Observer):
 
         elif notification_type == 'b':
             # Set the speedometer mask TODO --> implement different methods
-            self.object_detector_type = self.som.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
+            # self.object_detector_type = self._typeofdetection_str
             return
         elif notification_type == 'a':
             return

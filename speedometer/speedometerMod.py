@@ -85,6 +85,8 @@ class Speedometer(Subject):
     def ObjectDetection(self, obj_det: ObjectDetection):
         if isinstance(obj_det, ObjectDetection):
             self._ObjectDetection = obj_det
+            self._ObjectDetection.som = self  # Set self as speedometer variable, for communication between objects
+            self._ObjectDetection.set_object_detector_type()  # Todo fix, otherwise recurson error
         else:
             raise TypeError("Invalid object type, expected <ObjectDetection>")
 
@@ -219,6 +221,7 @@ class Speedometer(Subject):
                 if self.ret:
                     # Display the resulting frame
                     if display_window:
+                        # TODO make them not shop if object not subscribed
                         self.cv2.imshow('Frame', self.frame)
                         self.cv2.imshow("Roi", self.roi)
                         self.cv2.imshow("Mask", self.mask)
@@ -234,7 +237,8 @@ class Speedometer(Subject):
 
 if __name__ == "__main__":
     spd = Speedometer(resize=(640, 360))
-    spd.ObjectDetection = ObjectDetection(speedometer=spd, roi=[160, 280, 0, 680], typeofdetection="createBackgroundSubtractorKNN")  # roi=[160, 280, 0, 680]
+    spd.ObjectDetection = ObjectDetection(roi=[160, 280, 0, 680], typeofdetection="createBackgroundSubtractorKNN")  # roi=[160, 280, 0, 680]
+    spd.ObjectTracking = ObjectTracking()
     spd.video_path = r"C:\Users\Liam\PycharmProjects\CarDetection\Video\20210411_115107_tp00029.mp4"
     # spd.ObjectDetection = ObjectDetection()
     spd.play_all()
