@@ -21,14 +21,14 @@ class Subject(ABC):
         """
 
     @abstractmethod
-    def notify(self) -> None:
+    def notify(self, notification_type) -> None:
         """
         Notify all observers
         """
         pass
 
     @abstractmethod
-    def notify_one(self, observer: Observer) -> None:
+    def notify_one(self, observer: Observer, notification_type) -> None:
         """
         Notify one observer
         """
@@ -41,7 +41,9 @@ class Observer(ABC):
     """
 
     @abstractmethod
-    def update(self) -> None:
+    def update(self, notification_type) -> None:
         """
         Receive update from subject.
+        notification_type: 'b'(before), 'm'(mid), 'a'(after), represents when the notifcation was sent regarding
+        video playing.
         """

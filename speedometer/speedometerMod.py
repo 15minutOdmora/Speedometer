@@ -1,5 +1,4 @@
-from abc import ABC, abstractmethod
-
+# from speedometer import config
 from speedometer.Observer import Subject, Observer
 from speedometer.object_detection import ObjectDetection
 from speedometer.timer import Timer
@@ -10,41 +9,72 @@ import os
 
 
 class Speedometer(Subject):
-    def __init__(self):
+    def __init__(self, resize=None):
         self._ObjectDetection = None
         self._ObjectTracking = None
         self._Timer = None
+
+        self.frames = 0
+
+        self.cv2 = cv2
+
+        self._observers: list = []
 
         # Given path of video, could be directory path or simple file path
         self._video_path = None
         # List of video paths
         self._videos: list = []
 
+        # Object tracking data
+        self._point_of_interest = None
+
+        self.resize = resize
+
+        # Video data once video is playing
+        self._cap = None
+        self.ret = None
+        self.frame = None
+        self._frame_size = None
+
+        # Mask, contours ...
+        self.mask = None
+
+        # Region of interest
+        self.roi = None
+
+        self.first_frame = None
+
     def attach(self, observer: Observer) -> None:
         """
         :param observer:
         :return:
         """
-        pass
+        self._observers.append(observer)
 
     def detach(self, observer: Observer) -> None:
         """
         :param observer:
         :return:
         """
-        pass
+        self._observers.remove(observer)
 
-    def notify(self) -> None:
+    def notify(self, notification_type) -> None:
         """
+        Method sends this object as data to all subscribed observers
         :return:
         """
-        pass
+        for observer in self._observers:
+            observer.update(self, notification_type)
 
-    def notify_one(self, observer: Observer) -> None:
+    def notify_one(self, observer: Observer, notification_type) -> None:
         """
-        :param observer:
+        Method sends self as data to specified observer Observer
+        :param notification_type:
+        :param observer: target Observer
         :return:
         """
+        if observer is not None:
+            observer.update(notification_type)
         pass
 
     @property
@@ -117,35 +147,95 @@ class Speedometer(Subject):
         self._video_path = None
         self._videos = []
 
-    def play(self):
+    @property
+    def cap(self):
+        return self._cap
+
+    @cap.setter
+    def cap(self, video_path):
+        self._cap = self.cv2.VideoCapture(video_path)
+        # Set frame size
+        if self.resize is not None:
+            self.frame_size = self.resize
+        else:
+            if self.cap is not None:
+                width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # Convert to int as it returns float
+                height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                self.frame_size = (width, height)
+
+    @cap.deleter
+    def cap(self):
+        self._cap.release()
+        self._cap = None
+
+    @property
+    def frame_size(self):
+        return self._frame_size
+
+    @frame_size.setter
+    def frame_size(self, size):
+        self._frame_size = size
+
+    def resize(self):
+        pass
+
+    def play_all(self, display_window=True):
+        """
+        :return:
+        """
         print("Playing video/s.")
         if not self._videos:
             print("Nothing to play...")
+
         for vid_path in self._videos:
+
             # Set the capture
-            cap = cv2.VideoCapture(vid_path)
+            self.cap = vid_path  # Todo make normal (lol)
 
             # Check if camera opened successfully
-            if not cap.isOpened():
+            if not self.cap.isOpened():
                 raise ValueError("Error opening video file {}".format(vid_path))
 
-            while cap.isOpened():
+            # Check first frame, save size
+            self.ret, temp_frame = self.cap.read()
+            # Save frame to object variable first_frame (used in object_detections)
+            self.frame = temp_frame
+            self.first_frame = temp_frame
+
+            # Notify ObjectDetection object to setup object_detector...
+            self.notify_one(self.ObjectDetection, "b")
+
+            while self.cap.isOpened():
+                self.frames += 1
                 # Capture frame-by-frame
-                ret, frame = cap.read()
-                if ret:
+                self.ret, self.frame = self.cap.read()
+
+                if self.resize is not None:
+                    self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=self.cv2.INTER_CUBIC)
+
+                self.notify_one(self.ObjectDetection, notification_type="m")
+                print(self.frames)
+
+                if self.ret:
                     # Display the resulting frame
-                    cv2.imshow('Frame', frame)
+                    if display_window:
+                        self.cv2.imshow('Frame', self.frame)
+                        self.cv2.imshow("Roi", self.roi)
+                        self.cv2.imshow("Mask", self.mask)
                     # Press Q on keyboard to  exit
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                    if self.cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 # Break the loop
                 else:
                     break
 
+            del self.cap
+
 
 if __name__ == "__main__":
-    spd = Speedometer()
+    spd = Speedometer(resize=(640, 360))
+    spd.ObjectDetection = ObjectDetection(speedometer=spd, roi=[160, 280, 0, 680], typeofdetection="createBackgroundSubtractorKNN")  # roi=[160, 280, 0, 680]
     spd.video_path = r"C:\Users\Liam\PycharmProjects\CarDetection\Video\20210411_115107_tp00029.mp4"
-    print(spd._videos)
-    spd.play()
+    # spd.ObjectDetection = ObjectDetection()
+    spd.play_all()
 

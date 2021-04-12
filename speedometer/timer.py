@@ -5,7 +5,7 @@ class Timer(Observer):
     def __init__(self):
         pass
 
-    def update(self) -> None:
+    def update(self, **kwargs) -> None:
         """
         """
         pass
