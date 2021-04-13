@@ -19,6 +19,7 @@ class Subject(ABC):
         """
         Detach observer from subject
         """
+        pass
 
     @abstractmethod
     def notify(self, notification_type) -> None:
@@ -28,7 +29,7 @@ class Subject(ABC):
         pass
 
     @abstractmethod
-    def notify_one(self, observer: Observer, notification_type) -> None:
+    def notify_one(self, observer: Observer) -> None:
         """
         Notify one observer
         """
@@ -47,3 +48,4 @@ class Observer(ABC):
         notification_type: 'b'(before), 'm'(mid), 'a'(after), represents when the notifcation was sent regarding
         video playing.
         """
+        pass
