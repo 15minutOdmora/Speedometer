@@ -88,27 +88,12 @@ class VideoPlayer(Subject):
         """
         pass
 
-    def notify_beginning(self) -> None:
-        """
-        Notify all observers
-        """
-        print(self._observers)
-        for observer in self._observers:
-            observer.update_beginning()
-
-    def notify_mid(self) -> None:
+    def notify(self) -> None:
         """
         Notify all observers, mid video
         """
         for observer in self._observers:
             observer.update_mid()
-
-    def notify_end(self) -> None:
-        """
-        Notify all observers, at end of video
-        """
-        for observer in self._observers:
-            observer.update_end()
 
     @property
     def video_list(self) -> list:

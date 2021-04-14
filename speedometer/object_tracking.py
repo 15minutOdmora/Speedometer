@@ -1,3 +1,4 @@
+from __future__ import annotations
 from speedometer.Observer import Observer
 from abc import abstractmethod
 
@@ -19,19 +20,13 @@ class ObjectTracking(Observer):
 
     @video.setter
     def video(self, video_object):
+        """ This gets set when object is initialized """
         self._video = video_object
         # Attach self to subject as an observer
         self._video.attach(self)
         print(self._video)
 
-    def update_beginning(self) -> None:
-        """
-        Receive update from subject, beginning --> when video is set to play
-        video playing.
-        """
-        print("Beginning")
-
-    def update_mid(self) -> None:
+    def update(self) -> None:
         """
         Receive update from subject, mid --> when video is being played
         video playing.

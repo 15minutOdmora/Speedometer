@@ -22,23 +22,9 @@ class Subject(ABC):
         pass
 
     @abstractmethod
-    def notify_beginning(self) -> None:
+    def notify(self) -> None:
         """
         Notify all observers, at beginning of video
-        """
-        pass
-
-    @abstractmethod
-    def notify_mid(self) -> None:
-        """
-        Notify all observers, mid video
-        """
-        pass
-
-    @abstractmethod
-    def notify_end(self) -> None:
-        """
-        Notify all observers, at end of video
         """
         pass
 
@@ -49,25 +35,16 @@ class Observer(ABC):
     """
 
     @abstractmethod
-    def update_beginning(self) -> None:
+    def update(self) -> None:
         """
-        Receive update from subject, beginning --> when video is set to play
-        video playing.
-        """
-        pass
-
-    @abstractmethod
-    def update_mid(self) -> None:
-        """
-        Receive update from subject, mid --> when video is being played
-        video playing.
+        Receive update from subject
         """
         pass
 
-    @abstractmethod
-    def update_end(self) -> None:
-        """
-        Receive update from subject, end --> when video has ended playing
-        video playing.
-        """
-        pass
+
+class Mediator(ABC, Observer, Subject):
+    """
+    Mediator acts as an observer and a subject at the same time, hence the name.
+    Inherits from both classes
+    """
+    pass
