@@ -4,10 +4,37 @@
 """
 from speedometer.Observer import Subject, Observer
 from speedometer.object_tracking import ObjectTracking
-from abc import ABC, abstractmethod
+import json
 
 import cv2
 import os
+
+"""with open("globals.json", 'w') as glob:
+    data = {"roi": None}
+    json.dump(data, glob)"""
+
+
+def open_globals():
+    """ Opens the globals.json returns the dic.
+    :return: distionary
+    """
+    with open("globals.json", 'r') as glob:
+        data = json.load(glob)
+    return data
+
+
+def save_to_globals(key, value):
+    """ Saves key value pair to globals.json
+    :param key: Key
+    :param value: Value
+    """
+    with open("globals.json", 'r') as glob:
+        data = json.load(glob)
+
+    data[key] = value
+
+    with open("globals.json", 'w') as glob:
+        json.dump(data, glob)
 
 
 def mmss_to_frames(fps, m, s=0):
@@ -22,7 +49,7 @@ def mmss_to_frames(fps, m, s=0):
 
 
 class VideoPlayer(Subject):
-    def __init__(self, video_path, fps, roi=None):
+    def __init__(self, video_path, fps, roi=None, resize=(640, 360)):
         self._observers: list = []
 
         self.cv2 = cv2
@@ -35,13 +62,25 @@ class VideoPlayer(Subject):
         self.video_list = video_path
         self.fps = fps
 
-        self.roi = roi  # Region of interest
+        if roi is None:
+            # Check if global roi variable exists
+            globals_json = open_globals()
+            if globals_json["roi"] != "None":
+                self.roi = globals_json["roi"]  # Todo load roi value from globals.json
+            else:
+                self.roi = roi
+
+        self.resize = resize
+
+        # Gets set when video is playing
+        self.frame = None
+        self.ret = None
 
     def attach(self, observer: Observer) -> None:
         """
         Attach an observer to the subject
         """
-        pass
+        self._observers.append(observer)
 
     def detach(self, observer: Observer) -> None:
         """
@@ -49,17 +88,27 @@ class VideoPlayer(Subject):
         """
         pass
 
-    def notify(self, notification_type) -> None:
+    def notify_beginning(self) -> None:
         """
         Notify all observers
         """
-        pass
+        print(self._observers)
+        for observer in self._observers:
+            observer.update_beginning()
 
-    def notify_one(self, observer: Observer) -> None:
+    def notify_mid(self) -> None:
         """
-        Notify one observer
+        Notify all observers, mid video
         """
-        pass
+        for observer in self._observers:
+            observer.update_mid()
+
+    def notify_end(self) -> None:
+        """
+        Notify all observers, at end of video
+        """
+        for observer in self._observers:
+            observer.update_end()
 
     @property
     def video_list(self) -> list:
@@ -97,7 +146,7 @@ class VideoPlayer(Subject):
         self._frames = f
 
     def select_roi(self, **kwargs):
-        """  TODO cv2.roi prints command description after selection, should get rid of it
+        """  TODO cv2.roi prints command description after selection, should get rid of it, fix so seconds can get passed
         Opens video with a ROI selector on given frame or time set in kwargs,
         :param kwargs: frames= or min=, or min= and sec=
         :return: None
@@ -116,10 +165,16 @@ class VideoPlayer(Subject):
         cap = self.cv2.VideoCapture(self.video_list[0])
         cap.set(1, frame_number)  # cv2.CAP_PROP_FRAME_COUNT
         _, frame = cap.read()
+        # Resize frame so roi mathches at the end
+        frame = self.cv2.resize(frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
         self.cv2.imshow("Frame", frame)
         print("Create the selecton using mouse, to save and exit press SPACE or ENTER to cancel press C")
         self.roi = self.cv2.selectROI("Frame", frame)
         print(self.roi)
+        if "save" in keys:
+            # if set to True --> save to globals
+            if kwargs["save"]:
+                save_to_globals("roi", self.roi)
 
     def play_video_test(self):
         for video_path in self.video_list:
@@ -149,8 +204,51 @@ class VideoPlayer(Subject):
                 if key == 27:
                     break
 
+    def play(self):
+        """
+        Starts video, displays windows
+        :return:
+        """
+        for video_path in self.video_list:
+            cap = self.cv2.VideoCapture(video_path)
+            # Get first frames to extract size
+            _, self.frame = cap.read()
+            self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+            height, width, _ = self.frame.shape
+            # Set roi
+            if self.roi is None:
+                self.roi = (0, 0, width, height)  # x, y, w, h
+
+            # Beginning---- Notify observers
+            self.notify_beginning()
+
+            while True:
+                self.frames += 1
+                self.ret, self.frame = cap.read()
+
+                if self.frame is None:  # End of video
+                    break
+                # Resize frame --> faster obj. detection/tracking
+                self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+
+                # Mid---- Notify observers
+                self.notify_mid()
+
+                self.cv2.imshow("Frame", self.frame)
+                # Pressing Esc key to stop
+                key = cv2.waitKey(1)
+                if key == 27:
+                    break
+
+            # End---- Notify observers
+            self.notify_end()
+
 
 if __name__ == "__main__":
     video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=15)
+    video.select_roi(save=True)
     obt = ObjectTracking(video)
+    video.play()
+    pass
+
 

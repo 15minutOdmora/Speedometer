@@ -22,16 +22,23 @@ class Subject(ABC):
         pass
 
     @abstractmethod
-    def notify(self, notification_type) -> None:
+    def notify_beginning(self) -> None:
         """
-        Notify all observers
+        Notify all observers, at beginning of video
         """
         pass
 
     @abstractmethod
-    def notify_one(self, observer: Observer) -> None:
+    def notify_mid(self) -> None:
         """
-        Notify one observer
+        Notify all observers, mid video
+        """
+        pass
+
+    @abstractmethod
+    def notify_end(self) -> None:
+        """
+        Notify all observers, at end of video
         """
         pass
 
@@ -42,10 +49,25 @@ class Observer(ABC):
     """
 
     @abstractmethod
-    def update(self, notification_type) -> None:
+    def update_beginning(self) -> None:
         """
-        Receive update from subject.
-        notification_type: 'b'(before), 'm'(mid), 'a'(after), represents when the notifcation was sent regarding
+        Receive update from subject, beginning --> when video is set to play
+        video playing.
+        """
+        pass
+
+    @abstractmethod
+    def update_mid(self) -> None:
+        """
+        Receive update from subject, mid --> when video is being played
+        video playing.
+        """
+        pass
+
+    @abstractmethod
+    def update_end(self) -> None:
+        """
+        Receive update from subject, end --> when video has ended playing
         video playing.
         """
         pass
