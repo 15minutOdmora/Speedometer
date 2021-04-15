@@ -1,34 +1,74 @@
 from __future__ import annotations
-from speedometer.Observer import Observer
-from abc import abstractmethod
+from speedometer.Observer import Mediator, Observer
 
 
-class ObjectTracking(Observer):
-    def __init__(self, video, detection="MOG2", tracking="euclid"):
+class Object:
+    """
+    Represents one object that is being tracked by the ObjectTracking object
+    """
+    def __init__(self, id, position, bounding_rect, frame):
+        self.id = id
+        # List off all center positions of object (center of rectangle)
+        self.positions = []  # [[x1, y1], ...] upper left corner positions of bounding rect
+        self.positions.append(position)
+        # List of all bounding rectangles sizes
+        self.bounding_rects = []  # [[w1, h1], ...]
+        self.bounding_rects.append(bounding_rect)
+        # List of frame counter the object was seen
+        self.frames = []  # [int_1, ...]
+        self.frames.append(frame)
+        # Calculate center position and save to list
+        center_pos = [position[0] + bounding_rect[0]/2, position[1] + bounding_rect[1]/2]
+        self.center_positions = []
+        self.center_positions.append(center_pos)
+
+
+class ObjectTracking(Mediator):
+    """
+    Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer
+    Detects and tracks objects objects based on different methods that are set when initialized.
+    """
+    def __init__(self, video, detection="MOG2", tracking="euclid", object_parameters=None):
+        self._observers: list = []
         self.video = video  # Video object acts as subject
         self.cv2 = video.cv2  # Match the cv2 module with Video object
         self.object_detector = None
-
+        # Set type of detection todo add personal one
         if detection == "MOG2":
             self.object_detector = self.video.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
-
+        # Object parameters describe the category of object by size [min_avg_size, max_avg_size]
+        if object_parameters is None:
+            self.object_parameters = {"human": [300, 600], "cyclist": [601, 750], "car": [750, 2500], "bus": [2500, 4000]}
+            self.minimum_object_size = 300
+        else:
+            self.object_parameters = object_parameters
+            self.minimum_object_size = min([size[0] for size in self.object_parameters.values()])
         self.mask = None
+        # List of all objects
+        self.objects = []
 
-    @property
-    def video(self):
-        return self._video
+    def attach(self, observer: Observer) -> None:
+        """
+        Attach an observer to the subject
+        """
+        self._observers.append(observer)
 
-    @video.setter
-    def video(self, video_object):
-        """ This gets set when object is initialized """
-        self._video = video_object
-        # Attach self to subject as an observer
-        self._video.attach(self)
-        print(self._video)
+    def detach(self, observer: Observer) -> None:
+        """
+        Detach observer from subject
+        """
+        self._observers.remove(observer)
+
+    def notify(self) -> None:
+        """
+        Notify all observers, mid video
+        """
+        for observer in self._observers:
+            observer.update_mid()
 
     def update(self) -> None:
         """
-        Receive update from subject, mid --> when video is being played
+        Receive update from subject(VideoPlayer)
         video playing.
         """
         # video.roi has to be set by now
@@ -43,7 +83,7 @@ class ObjectTracking(Observer):
 
         for contour in contours:
             area = self.cv2.contourArea(contour)
-            if area >= 300:
+            if area >= self.minimum_object_size:
                 # Get bounding rectangle
                 x, y, w, h = self.cv2.boundingRect(contour)
                 # Get center point
@@ -53,9 +93,14 @@ class ObjectTracking(Observer):
 
         self.cv2.imshow("Mask", self.mask)
 
-    def update_end(self) -> None:
-        """
-        Receive update from subject, end --> when video has ended playing
-        video playing.
-        """
-        pass
+    @property
+    def video(self):
+        return self._video
+
+    @video.setter
+    def video(self, video_object):
+        """ This gets set when object is initialized """
+        self._video = video_object
+        # Attach self to subject as an observer
+        self._video.attach(self)
+        print(self._video)

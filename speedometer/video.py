@@ -86,7 +86,7 @@ class VideoPlayer(Subject):
         """
         Detach observer from subject
         """
-        pass
+        self._observers.remove(observer)
 
     def notify(self) -> None:
         """
