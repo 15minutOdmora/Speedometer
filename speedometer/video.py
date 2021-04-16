@@ -204,10 +204,7 @@ class VideoPlayer(Subject):
             if self.roi is None:
                 self.roi = (0, 0, width, height)  # x, y, w, h
 
-            # Beginning---- Notify observers
-            self.notify_beginning()
-
-            while True:
+            while cap.isOpened():
                 self.frames += 1
                 self.ret, self.frame = cap.read()
 
@@ -217,16 +214,13 @@ class VideoPlayer(Subject):
                 self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
 
                 # Mid---- Notify observers
-                self.notify_mid()
+                self.notify()
 
                 self.cv2.imshow("Frame", self.frame)
                 # Pressing Esc key to stop
                 key = cv2.waitKey(1)
                 if key == 27:
                     break
-
-            # End---- Notify observers
-            self.notify_end()
 
 
 if __name__ == "__main__":

@@ -6,8 +6,9 @@ class Object:
     """
     Represents one object that is being tracked by the ObjectTracking object
     """
-    def __init__(self, id, position, bounding_rect, frame):
+    def __init__(self, id, frame, position, bounding_rect):
         self.id = id
+        self.num_of_points = 1  # Number of points (adds one when initialized)
         # List off all center positions of object (center of rectangle)
         self.positions = []  # [[x1, y1], ...] upper left corner positions of bounding rect
         self.positions.append(position)
@@ -21,6 +22,39 @@ class Object:
         center_pos = [position[0] + bounding_rect[0]/2, position[1] + bounding_rect[1]/2]
         self.center_positions = []
         self.center_positions.append(center_pos)
+
+    def add_point(self, frame, position, bounding_rect) -> None:
+        """
+        Method adds a detected point to the object
+        """
+        self.frames.append(frame)  # Frame of detection
+        self.positions.append(position)  # Position of detection
+        self.bounding_rects.append(bounding_rect)  # Size at detection
+        self.center_positions.append([position[0] + bounding_rect[0]/2, position[1] + bounding_rect[1]/2])
+        self.num_of_points += 1
+
+    def average_size(self) -> float:
+        """
+        Function returns the average size of the object
+        :return: float: average size(by surface)
+        """
+        return sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points
+
+    def average_direction(self) -> list:
+        """
+        Function returns the average direction of the object as a vector [x, y] where size matters
+        :return: list: average direction [x, y] of the center point of object
+        """
+        x_diff, y_diff = [], []
+        prev_x, prev_y = self.center_positions[0]
+        for i in range(1, self.num_of_points):
+            curr_pos = self.center_positions[i]
+            # Append difference to prev. point
+            x_diff.append(curr_pos[0] - prev_x)
+            y_diff.append(curr_pos[1] - prev_y)
+            # Set this point as previous
+            x_diff, y_diff = curr_pos
+        return [sum(x_diff)/self.num_of_points, sum(y_diff)/self.num_of_points]
 
 
 class ObjectTracking(Mediator):
