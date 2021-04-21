@@ -67,6 +67,7 @@ class ObjectTracking(Mediator):
         self.video = video  # Video object acts as subject
         self.cv2 = video.cv2  # Match the cv2 module with Video object
         self.object_detector = None
+
         # Set type of detection todo add personal one
         if detection == "MOG2":
             self.object_detector = self.video.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
@@ -98,7 +99,7 @@ class ObjectTracking(Mediator):
         Notify all observers, mid video
         """
         for observer in self._observers:
-            observer.update_mid()
+            observer.update()
 
     def update(self) -> None:
         """
@@ -124,6 +125,9 @@ class ObjectTracking(Mediator):
                 center_point = (x + w // 2, y + h // 2)
                 self.cv2.rectangle(roi, (x, y), (x + w, y + h), (0, 255, 0), 3)
                 self.cv2.circle(roi, center_point, 3, (0, 0, 255), 3)
+
+        # Notify observers (Timer)
+        self.notify()
 
         self.cv2.imshow("Mask", self.mask)
 

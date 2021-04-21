@@ -42,9 +42,36 @@ class Observer(ABC):
         pass
 
 
-class Mediator(ABC, Observer, Subject):
+class Mediator(ABC):
     """
     Mediator acts as an observer and a subject at the same time, hence the name.
-    Inherits from both classes
+    Has same methods as both above classes.
     """
-    pass
+
+    @abstractmethod
+    def attach(self, observer: Observer) -> None:
+        """
+        Attach an observer to the subject
+        """
+        pass
+
+    @abstractmethod
+    def detach(self, observer: Observer) -> None:
+        """
+        Detach observer from subject
+        """
+        pass
+
+    @abstractmethod
+    def notify(self) -> None:
+        """
+        Notify all observers, at beginning of video
+        """
+        pass
+
+    @abstractmethod
+    def update(self) -> None:
+        """
+        Receive update from subject
+        """
+        pass

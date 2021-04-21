@@ -4,6 +4,7 @@
 """
 from speedometer.Observer import Subject, Observer
 from speedometer.object_tracking import ObjectTracking
+from speedometer.timer import Timer
 import json
 
 import cv2
@@ -50,7 +51,7 @@ def mmss_to_frames(fps, m, s=0):
 
 class VideoPlayer(Subject):
     def __init__(self, video_path, fps, roi=None, resize=(640, 360)):
-        self._observers: list = []
+        self.observers: list = []
 
         self.cv2 = cv2
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -80,19 +81,19 @@ class VideoPlayer(Subject):
         """
         Attach an observer to the subject
         """
-        self._observers.append(observer)
+        self.observers.append(observer)
 
     def detach(self, observer: Observer) -> None:
         """
         Detach observer from subject
         """
-        self._observers.remove(observer)
+        self.observers.remove(observer)
 
     def notify(self) -> None:
         """
         Notify all observers, mid video
         """
-        for observer in self._observers:
+        for observer in self.observers:
             observer.update_mid()
 
     @property
@@ -133,7 +134,7 @@ class VideoPlayer(Subject):
     def select_roi(self, **kwargs):
         """  TODO cv2.roi prints command description after selection, should get rid of it, fix so seconds can get passed
         Opens video with a ROI selector on given frame or time set in kwargs,
-        :param kwargs: frames= or min=, or min= and sec=
+        :param kwargs: frames= or min= or min= and sec=
         :return: None
         """
         keys = kwargs.keys()
@@ -157,7 +158,7 @@ class VideoPlayer(Subject):
         self.roi = self.cv2.selectROI("Frame", frame)
         print(self.roi)
         if "save" in keys:
-            # if set to True --> save to globals
+            # if set to True --> save to globals.json
             if kwargs["save"]:
                 save_to_globals("roi", self.roi)
 
@@ -213,7 +214,7 @@ class VideoPlayer(Subject):
                 # Resize frame --> faster obj. detection/tracking
                 self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
 
-                # Mid---- Notify observers
+                # Notify observers
                 self.notify()
 
                 self.cv2.imshow("Frame", self.frame)
@@ -225,9 +226,11 @@ class VideoPlayer(Subject):
 
 if __name__ == "__main__":
     video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=15)
-    video.select_roi(save=True)
+    # video.select_roi(save=True)
     obt = ObjectTracking(video)
-    video.play()
+    timer = Timer(video)
+    timer.set_lines(save=True)
+    # video.play()
     pass
 
 
