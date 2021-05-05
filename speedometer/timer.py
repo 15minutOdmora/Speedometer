@@ -5,8 +5,8 @@ import cv2
 
 # TODO put these two functions in a separate file
 def open_data_file():
-    """ Opens the globals.json returns the dic.
-    :return: distionary
+    """ Opens the saved_data.json returns the dic.
+    :return: dict()
     """
     with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
@@ -98,11 +98,17 @@ class Timer(Observer):
         if start_line is not None:
             self.start_line = Line(start_line)
             self.end_line = Line(end_line)
+        else:  # Check if lines are in saved_data.json
+            data = open_data_file()
+            if "start_line" in data.keys() and "end_line" in data.keys():
+                self.start_line = Line(data["start_line"])
+                self.end_line = Line(data["end_line"])
 
     def update(self) -> None:
         """
         Receive update from subject(ObjectDetection) while video is playing.
         """
+
         pass
 
     def set_lines(self, save=False):
@@ -192,13 +198,12 @@ class Timer(Observer):
                 "Esc BUTTON to exit without saving\n\n" \
                 "The last two drawn lines will be saved as " \
                 "start and end lines. \nFirst line drawn is start line(colored green) second is end line" \
-                "(colored red).\n If the drawn lines aren't fully vertical, they get set vertical based on the middle " \
+                "(colored red).\nIf the drawn lines aren't fully vertical, they get set vertical based on the middle " \
                 "x point of drawn line"
         print(instr)
 
         start_point = []
         end_point = []
-
 
         # Get one frame of video
         cap = self.cv2.VideoCapture(self.video.video_list[0])
