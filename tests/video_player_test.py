@@ -7,4 +7,4 @@ from speedometer.video import VideoPlayer
 
 
 video = VideoPlayer(0, fps=15, rotate=True)
-video.play()
+# video.play()

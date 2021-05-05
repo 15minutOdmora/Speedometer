@@ -7,6 +7,7 @@ from speedometer.object_tracking import ObjectTracking
 from speedometer.timer import Timer
 import json
 
+import time
 import cv2
 import os
 
@@ -50,7 +51,7 @@ def mmss_to_frames(fps, m, s=0):
 
 
 class VideoPlayer(Subject):
-    def __init__(self, video_path, fps, roi=None, resize=(640, 360), rotate=False):
+    def __init__(self, video_path, fps=None, roi=None, resize=(640, 360), rotate=False):
         self.observers: list = []
 
         self.cv2 = cv2
@@ -204,7 +205,7 @@ class VideoPlayer(Subject):
     def play(self):
         """
         Starts video, displays windows
-        :return:
+        :return: None
         """
         for video_path in self.video_list:
             cap = self.cv2.VideoCapture(video_path)
@@ -237,6 +238,17 @@ class VideoPlayer(Subject):
                 key = cv2.waitKey(1)
                 if key == 27:
                     break
+
+    def set_fps(self):
+        """
+        Sets fps based on cv2.CAP_PROP_FPS
+        :return: None
+        """
+        video = cv2.VideoCapture(self.video_list[0])
+        fps = int(video.get(self.cv2.CAP_PROP_FPS))
+        print(fps)
+        self.fps = fps
+
 
 
 if __name__ == "__main__":
