@@ -132,6 +132,8 @@ class VideoPlayer(Subject):
                 if os.path.isfile(absolute_path):
                     temp_list.append(absolute_path)
             self._video_list = temp_list
+        elif isinstance(video_path, str):  # If string assume it's a live stream url
+            self._video_list = [video_path]
         else:
             raise ValueError("Invalid path.")
 
@@ -239,16 +241,87 @@ class VideoPlayer(Subject):
                 if key == 27:
                     break
 
+            cap.release()
+
     def set_fps(self):
         """
         Sets fps based on cv2.CAP_PROP_FPS
         :return: None
         """
-        video = cv2.VideoCapture(self.video_list[0])
-        fps = int(video.get(self.cv2.CAP_PROP_FPS))
-        print(fps)
+        vid = cv2.VideoCapture(self.video_list[0])
+        fps = int(vid.get(self.cv2.CAP_PROP_FPS))
+        print("Read fps using cv2.CAP_PROP_FPS: ", fps)
         self.fps = fps
 
+    def record(self, filename, sec, codec="mp4v", fps=None):
+        """
+        Records and saves video to given filename in current directory
+        :param filename: Name of the file, extension should match the codec
+        :param sec: int number of seconds to record
+        :param codec: Type of codec, string based on cv2 codecs and the codecs your pc supports
+        :param fps: int number of Frames Per Second, if the cv2 measured ones are incorrect
+        :return: None
+        """
+        for video_path in self.video_list:
+            cap = self.cv2.VideoCapture(video_path)
+            # Get first frames to extract size
+            _, self.frame = cap.read()
+            self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+            height, width, _ = self.frame.shape
+
+            # Get fps and calculate needed fps for the time period of sec
+            if fps is None:  # If fps set to None, get fps by cv2
+                fps = int(cap.get(self.cv2.CAP_PROP_FPS))
+
+            total_fps = sec * fps
+
+            # Set the video recorder
+            fourcc = self.cv2.VideoWriter_fourcc(*codec)
+            out = self.cv2.VideoWriter(filename, fourcc, fps, (int(width), int(height)))
+
+            # Set variable as timer, to check if fps match
+            start_time = time.time()
+
+            # Create a frame counter
+            frame_counter = 0
+            while cap.isOpened() and frame_counter <= total_fps:
+                frame_counter += 1  # Update frame counter at beginning
+
+                self.ret, self.frame = cap.read()
+                # If rotate set to true
+                if self.rotate:
+                    self.frame = self.cv2.rotate(self.frame, self.cv2.ROTATE_180)
+
+                if self.frame is None:  # End of video
+                    break
+
+                # Resize frame --> faster obj. detection/tracking
+                self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+
+                # Write frame to writer
+                out.write(self.frame)
+
+                self.cv2.imshow("Frame", self.frame)
+
+                # Pressing Esc key to stop
+                key = cv2.waitKey(1)
+                if key == 27:
+                    break
+
+            # End time
+            end_time = time.time()
+
+            # Release everything when finished
+            cap.release()
+            out.release()
+            self.cv2.destroyAllWindows()
+
+            total_time = round(end_time - start_time, 3)
+            print_string = "Video saved as: {}. Total recording time: {}s should match {}s.".format(filename,
+                                                                                                    total_time,
+                                                                                                    sec)
+            print_string += " Set fps = {}".format(fps)
+            print(print_string)
 
 
 if __name__ == "__main__":
