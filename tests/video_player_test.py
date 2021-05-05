@@ -5,8 +5,8 @@ videos path:
 """
 #  r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\"
 
-video = VideoPlayer("rtsp://liammislej1:nekogeslo976@192.168.64.116:554/stream2", fps=15)
-video.record("test.mp4", 10)
+# video = VideoPlayer("rtsp://liammislej1:nekogeslo976@192.168.64.116:554/stream2", fps=15)
+# video.record("test.mp4", 10)
 # video.play()
 
 

@@ -62,7 +62,8 @@ class VideoPlayer(Subject):
 
         # video_path is a string when initialized, converted to a list containing file_name strings by the setter
         self.video_list = video_path
-        self.fps = fps
+
+        self._fps = fps
 
         # Check if saved_data.json exists, otherwise create it --> load roi if exists, else set to None
         if not os.path.exists("saved_data.json"):
@@ -104,7 +105,7 @@ class VideoPlayer(Subject):
         Notify all observers, mid video
         """
         for observer in self.observers:
-            observer.update_mid()
+            observer.update()
 
     @property
     def video_list(self) -> list:
@@ -144,6 +145,18 @@ class VideoPlayer(Subject):
     @frames.setter
     def frames(self, f):
         self._frames = f
+
+    @property
+    def fps(self):
+        return self._fps
+
+    @fps.setter
+    def fps(self, fps):
+        if fps is None:  # If fps is set to None, read fps using cv2
+            vid = cv2.VideoCapture(self.video_list[0])
+            self._fps = int(vid.get(self.cv2.CAP_PROP_FPS))
+        else:
+            self._fps = fps
 
     def select_roi(self, **kwargs):
         """  TODO cv2.roi prints command description after selection, should get rid of it, fix so seconds can get passed
