@@ -7,6 +7,6 @@ video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=1
 # video.select_roi(save=True)
 obt = ObjectTracking(video)
 timer = Timer(video)
-timer.set_lines(save=True)
+timer.set_vertical_lines()
 # video.play()
 pass
