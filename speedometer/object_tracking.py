@@ -59,8 +59,8 @@ class Object:
 
 class ObjectTracking(Mediator):
     """
-    Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer
-    Detects and tracks objects objects based on different methods that are set when initialized.
+    Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
+    Detects and tracks objects based on different methods that are set when initialized.
     """
     def __init__(self, video, detection="MOG2", tracking="euclid", object_parameters=None):
         self._observers: list = []
@@ -79,7 +79,7 @@ class ObjectTracking(Mediator):
             self.object_parameters = object_parameters
             self.minimum_object_size = min([size[0] for size in self.object_parameters.values()])
         self.mask = None
-        # List of all objects
+        # List of all detected objects
         self.objects = []
 
     def attach(self, observer: Observer) -> None:

@@ -4,26 +4,26 @@ import cv2
 
 
 # TODO put these two functions in a separate file
-def open_globals():
+def open_data_file():
     """ Opens the globals.json returns the dic.
     :return: distionary
     """
-    with open("globals.json", 'r') as glob:
+    with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
     return data
 
 
-def save_to_globals(key, value):
+def save_to_data_file(key, value):
     """ Saves key value pair to globals.json
     :param key: Key
     :param value: Value
     """
-    with open("globals.json", 'r') as glob:
+    with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
 
     data[key] = value
 
-    with open("globals.json", 'w') as glob:
+    with open("saved_data.json", 'w') as glob:
         json.dump(data, glob)
 
 
@@ -129,5 +129,5 @@ class Timer(Observer):
             print("Start line: {}\nEnd line: {}".format(start_line, end_line))
             # Check if save is set to true, save to globals
             if save:
-                save_to_globals("start_line", start_line)
-                save_to_globals("end_line", end_line)
+                save_to_data_file("start_line", start_line)
+                save_to_data_file("end_line", end_line)

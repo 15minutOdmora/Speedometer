@@ -15,26 +15,26 @@ import os
     json.dump(data, glob)"""
 
 
-def open_globals():
+def open_data_file():
     """ Opens the globals.json returns the dic.
     :return: distionary
     """
-    with open("globals.json", 'r') as glob:
+    with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
     return data
 
 
-def save_to_globals(key, value):
+def save_to_data_file(key, value):
     """ Saves key value pair to globals.json
     :param key: Key
     :param value: Value
     """
-    with open("globals.json", 'r') as glob:
+    with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
 
     data[key] = value
 
-    with open("globals.json", 'w') as glob:
+    with open("saved_data.json", 'w') as glob:
         json.dump(data, glob)
 
 
@@ -46,11 +46,11 @@ def mmss_to_frames(fps, m, s=0):
     :param s: seconds
     :return: frame number
     """
-    return int((m * 60 + s)/fps)
+    return int((m * 60 + s) / fps)
 
 
 class VideoPlayer(Subject):
-    def __init__(self, video_path, fps, roi=None, resize=(640, 360)):
+    def __init__(self, video_path, fps, roi=None, resize=(640, 360), rotate=False):
         self.observers: list = []
 
         self.cv2 = cv2
@@ -63,15 +63,24 @@ class VideoPlayer(Subject):
         self.video_list = video_path
         self.fps = fps
 
-        if roi is None:
-            # Check if global roi variable exists
-            globals_json = open_globals()
-            if globals_json["roi"] != "None":
-                self.roi = globals_json["roi"]  # Todo load roi value from globals.json
-            else:
-                self.roi = roi
+        # Check if saved_data.json exists, otherwise create it --> load roi if exists, else set to None
+        if not os.path.exists("saved_data.json"):
+            with open('saved_data.json', 'w') as data_file:
+                data = {"roi": None}
+                json.dump(data, data_file)
+            self.roi = None
+        else:
+            if roi is None:
+                # Check if global roi variable exists
+                saved_data = open_data_file()
+                if saved_data["roi"] is not None:
+                    self.roi = saved_data["roi"]
+                else:
+                    self.roi = roi
 
         self.resize = resize
+
+        self.rotate = rotate
 
         # Gets set when video is playing
         self.frame = None
@@ -110,6 +119,8 @@ class VideoPlayer(Subject):
         """
         if isinstance(video_path, list):
             self._video_list = video_path  # if list --> Does not check list content
+        elif isinstance(video_path, int):
+            self._video_list = [video_path]
         elif os.path.isfile(video_path):  # if file
             self._video_list = [video_path]
         elif os.path.isdir(video_path):  # if directory
@@ -160,7 +171,7 @@ class VideoPlayer(Subject):
         if "save" in keys:
             # if set to True --> save to globals.json
             if kwargs["save"]:
-                save_to_globals("roi", self.roi)
+                save_to_data_file("roi", self.roi)
 
     def play_video_test(self):
         for video_path in self.video_list:
@@ -208,9 +219,13 @@ class VideoPlayer(Subject):
             while cap.isOpened():
                 self.frames += 1
                 self.ret, self.frame = cap.read()
+                # If rotate set to true
+                if self.rotate:
+                    self.frame = self.cv2.rotate(self.frame, self.cv2.ROTATE_180)
 
                 if self.frame is None:  # End of video
                     break
+
                 # Resize frame --> faster obj. detection/tracking
                 self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
 
@@ -232,5 +247,3 @@ if __name__ == "__main__":
     timer.set_lines(save=True)
     # video.play()
     pass
-
-
