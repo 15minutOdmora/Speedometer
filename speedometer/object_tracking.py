@@ -51,7 +51,16 @@ class Object:
         """
         return sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points
 
-    def average_direction(self) -> list:
+    def direction(self) -> tuple:
+        """
+        Fuction calculates the direction of object by the first and last points of object
+        :return: tuple(x, y) => vector of direction
+        """
+        last_pos = self.center_points[-1]
+        first_pos = self.center_points[0]
+        return last_pos[0] - first_pos[0], last_pos[1] - first_pos[1]
+
+    def average_direction(self) -> tuple:
         """
         Function returns the average direction of the object as a vector [x, y] where size matters
         :return: list: average direction [x, y] of the center point of object
@@ -65,7 +74,7 @@ class Object:
             y_diff.append(curr_pos[1] - prev_y)
             # Set this point as previous
             x_diff, y_diff = curr_pos
-        return [sum(x_diff)/self.num_of_points, sum(y_diff)/self.num_of_points]
+        return sum(x_diff)/self.num_of_points, sum(y_diff)/self.num_of_points
 
 
 class ObjectTracking(Mediator):

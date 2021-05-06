@@ -1,6 +1,7 @@
 from speedometer.Observer import Observer
 import json
 import cv2
+import csv
 
 
 # TODO put these two functions in a separate file
@@ -13,15 +14,15 @@ def open_data_file():
     return data
 
 
-def save_to_data_file(key, value):
-    """ Saves key value pair to globals.json
-    :param key: Key
-    :param value: Value
+def save_to_data_file(dict):
+    """ Saves the keys and values from dict to saved_data.json
+    :param dict: dict() containing key, value pairs
     """
     with open("saved_data.json", 'r') as glob:
         data = json.load(glob)
 
-    data[key] = value
+    for key, value in dict.items():
+        data[key] = value
 
     with open("saved_data.json", 'w') as glob:
         json.dump(data, glob)
@@ -36,7 +37,6 @@ class Line:
         # Check if line is vertical
         if self.point1[0] == self.point2[0]:
             self.is_vertical = True
-            # Inverted function of x = ...
             self.x = None
             self.k = None
         else:
@@ -47,7 +47,7 @@ class Line:
             self.k = round(y_diff / x_diff, 4)
             # Calculate n
             n = self.point1[1] - self.k * self.point1[0]
-            # Inverse of  y = kx + y  ==>  x = ...
+            # Inverse of  y = kx + n  ==>  x = ...
             self.x = lambda y: round((y - n)/self.k)
             print("k {} n {}".format(self.k, n))
 
@@ -82,7 +82,7 @@ class Line:
 
 
 class Timer(Observer):
-    def __init__(self, video, start_line=None, end_line=None):
+    def __init__(self, video, start_line=None, end_line=None, distance=None):
         self.video = video
         # Points at the same cv2 as video
         self.cv2 = video.cv2
@@ -95,14 +95,17 @@ class Timer(Observer):
                 obj_tr.attach(self)
 
         # Start lines and end lines get made as line object if not none
-        if start_line is not None:
+        if start_line is not None and end_line is not None and distance is not None:
             self.start_line = Line(start_line)
             self.end_line = Line(end_line)
+            self.distance = distance
         else:  # Check if lines are in saved_data.json
             data = open_data_file()
             if "start_line" in data.keys() and "end_line" in data.keys():
                 self.start_line = Line(data["start_line"])
                 self.end_line = Line(data["end_line"])
+            if "distance" in data.keys():
+                self.distance = data["distance"]
 
     def update(self) -> None:
         """
@@ -111,7 +114,7 @@ class Timer(Observer):
 
         pass
 
-    def set_lines(self, save=False):
+    def set_lines(self, distance=None, save=False):
         """
         Function opens a frame of the current video to set the start and end lines with mouse
         Everything is done on a copy of the opened frame so it can be reset
@@ -181,10 +184,14 @@ class Timer(Observer):
             print("Start line: {}\nEnd line: {}".format(start_line, end_line))
             # Check if save is set to true, save to globals
             if save:
-                save_to_data_file("start_line", start_line)
-                save_to_data_file("end_line", end_line)
+                data_dict = {
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "distance": distance
+                }
+                save_to_data_file(data_dict)
 
-    def set_vertical_lines(self, save=False):
+    def set_vertical_lines(self, distance=None, save=False):
         """
                 Function opens a frame of the current video to set the start and end lines with mouse
                 Everything is done on a copy of the opened frame so it can be reset
@@ -258,5 +265,9 @@ class Timer(Observer):
             print("Start line: {}\nEnd line: {}".format(start_line, end_line))
             # Check if save is set to true, save to globals
             if save:
-                save_to_data_file("start_line", start_line)
-                save_to_data_file("end_line", end_line)
+                data_dict = {
+                    "start_line": start_line,
+                    "end_line": end_line,
+                    "distance": distance
+                }
+                save_to_data_file(data_dict)
