@@ -89,6 +89,7 @@ class VideoPlayer(Subject):
         # Gets set when video is playing
         self.frame = None
         self.ret = None
+        self.current_video_name = None
 
     def attach(self, observer: Observer) -> None:
         """

@@ -2,6 +2,7 @@ from __future__ import annotations
 from speedometer.Observer import Mediator, Observer
 
 import math
+import time
 
 
 def euclid_dist(point1, point2):
@@ -33,6 +34,11 @@ class Object:
         # Calculate center position and save to list
         self.center_points = []
         self.center_points.append(center_point)
+        # Times get measured in case fps doesn't match up
+        self.times = []
+        self.times.append(time.time())
+        # Direction, gets set once the object is timed, 1 = moving right (x increasing), -1 = moving left (x decreasing)
+        self._direction = None  # Todo make possible in y-cords
 
     def add_point(self, frame, position, bounding_rect, center_point) -> None:
         """
@@ -42,6 +48,7 @@ class Object:
         self.positions.append(position)  # Position of detection
         self.bounding_rects.append(bounding_rect)  # Size at detection
         self.center_points.append(center_point)
+        self.times.append(time.time())
         self.num_of_points += 1
 
     def average_size(self) -> float:
@@ -51,6 +58,7 @@ class Object:
         """
         return sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points
 
+    @property
     def direction(self) -> tuple:
         """
         Fuction calculates the direction of object by the first and last points of object

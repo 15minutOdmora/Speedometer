@@ -1,6 +1,8 @@
 from speedometer.Observer import Observer
 import json
 import cv2
+from time import time
+from datetime import datetime
 import csv
 
 
@@ -30,10 +32,12 @@ def save_to_data_file(dict):
 
 class Line:
     """ Class representing a line, has methods for checking if point is above or below line."""
-    def __init__(self, points):
+    def __init__(self, points, start):
         # Point = [x, y]
         self.point1 = points[0]
         self.point2 = points[1]
+        # If start line True, False is end line
+        self.start = start
         # Check if line is vertical
         if self.point1[0] == self.point2[0]:
             self.is_vertical = True
@@ -82,10 +86,12 @@ class Line:
 
 
 class Timer(Observer):
-    def __init__(self, video, start_line=None, end_line=None, distance=None):
+    def __init__(self, video, start_line=None, end_line=None, distance=None, save_file=None):
         self.video = video
         # Points at the same cv2 as video
         self.cv2 = video.cv2
+        # Set list for object trackers
+        self.obj_trackers = []
         # Set the pointer to the object tracking object
         if not self.video.observers:  # If there is no ObjectTracker object
             print("There is no ObjectDetection set on Video")
@@ -93,26 +99,74 @@ class Timer(Observer):
             # Attach self to all observers(ObjectTrackers) attached to the Video obj.
             for obj_tr in self.video.observers:
                 obj_tr.attach(self)
+                # Save trackers to list
+                self.obj_trackers.append(obj_tr)
 
         # Start lines and end lines get made as line object if not none
         if start_line is not None and end_line is not None and distance is not None:
-            self.start_line = Line(start_line)
-            self.end_line = Line(end_line)
+            # Assert if line is left or right, TODO I am scared to commit this as I might forget what it does
+            start = [True, False]
+            lines = [start_line[0], end_line[0]]  # x values
+            index_min = min(lines, key=lines.__getitem__)
+            index_max = max(lines, key=lines.__getitem__)
+            self.left_line = Line(lines[index_min], start[index_min])
+            self.right_line = Line(lines[index_max], start[index_max])
+            self.line_direction = -1 if start_line - end_line > 0 else 1  # 1 x is increasing, -1 decreasing
             self.distance = distance
         else:  # Check if lines are in saved_data.json
             data = open_data_file()
             if "start_line" in data.keys() and "end_line" in data.keys():
-                self.start_line = Line(data["start_line"])
-                self.end_line = Line(data["end_line"])
+                # Assert if line is left or right, todo ugly looking code fuck me i hate this ffuuuuu
+                start = [True, False]  # True is at index 0 as theres the start line below
+                lines = [data["start_line"][0], data["end_line"][0]]  # x values
+                index_min = min(lines, key=lines.__getitem__)
+                index_max = max(lines, key=lines.__getitem__)
+                self.left_line = Line(lines[index_min], start[index_min])
+                self.right_line = Line(lines[index_max], start[index_max])
+                self.line_direction = -1 if start_line - end_line > 0 else 1  # 1 x is increasing, -1 decreasing
             if "distance" in data.keys():
                 self.distance = data["distance"]
+        # Currently measured objects
+        self.curr_measured = []
+
+        # If save file is set, create save file in csv format
+        if save_file is not None:
+            self.save = True
+            date_time = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+            self.save_filename = save_file + "_" + date_time
+            with open(self.save_filename + ".csv", mode='w') as file:
+                data_file = csv.writer(file, delimiter=',')
+                data_file.writerow(["id",
+                                    "start_time",
+                                    "end_time",
+                                    "time_diff",
+                                    "direction",
+                                    "frames",
+                                    "calculated_time",
+                                    "speed_mps",
+                                    "speed_kmh"])
+
+        else:
+            self.save = False
 
     def update(self) -> None:
-        """
+        """  TODO currently implemented for only one object tracker, should be for more
         Receive update from subject(ObjectDetection) while video is playing.
         """
+        # Get first tracker object
+        tracker = self.obj_trackers[0]  # todo fix this
+        # Go trough each currently detected object
+        for obj in tracker.objects:
+            # Last center position
+            last_pos = obj.center_positions[-1]
+            # Check if object is already being measured
+            if obj in self.curr_measured:
+                pass
+            else:  # If not yet measured get object direction, and check if passed start or end line
+                dir_x = 1 if obj.direction[0] > 0 else -1  # Todo make direction possible in y-cor
+                # Check if object is between lines
 
-        pass
+                pass
 
     def set_lines(self, distance=None, save=False):
         """
@@ -177,10 +231,11 @@ class Timer(Observer):
         if key == 27:  # 27 = esc in ASCII table
             print("Exiting")
         elif key == 115:  # 115 = s in ASCII table
+            # Assert left and right lines
             start_line = (tuple(start_point[-2]), tuple(end_point[-2]))
             end_line = (tuple(start_point[-1]), tuple(end_point[-1]))
-            self.start_line = Line(start_line)
-            self.end_line = Line(end_line)
+            self.left_line = Line(start_line)
+            self.right_line = Line(end_line)
             print("Start line: {}\nEnd line: {}".format(start_line, end_line))
             # Check if save is set to true, save to globals
             if save:
