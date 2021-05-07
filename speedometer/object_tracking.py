@@ -113,7 +113,7 @@ class ObjectTracking(Mediator):
             self.min_frame_diff = min_frame_diff
         # max_point_distance is the maximum distance an object can move(in pixels) between two consecutive frames
         if max_point_distance is None:
-            self.max_point_distance = 200  # Todo calculate based on frames and cap size 
+            self.max_point_distance = 500  # Todo calculate based on frames and cap size
         else:
             self.max_point_distance = max_point_distance
         
@@ -150,7 +150,6 @@ class ObjectTracking(Mediator):
         :return: None
         """
         curr_frame = self.video.frames
-
         if not detected_objects:  # If there are no detections, delete the ones that haven't been seen in min_frame_diff
             for obj in self.objects:
                 frame_diff = curr_frame - obj.frames[-1]
@@ -251,8 +250,6 @@ class ObjectTracking(Mediator):
                 detected_objects.append([x, y, w, h, center_point])  # Save object to list
 
         self.match(detected_objects)  # Pass to match, remove or add objects to list (a tracker basically)
-        print(self.objects)
-
         # Notify observers (Timer)
         self.notify()
         self.cv2.imshow("Mask", self.mask)

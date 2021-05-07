@@ -183,14 +183,16 @@ class VideoPlayer(Subject):
         _, frame = cap.read()
         # Resize frame so roi mathches at the end
         frame = self.cv2.resize(frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
-        self.cv2.imshow("Frame", frame)
+        self.cv2.imshow("Select ROI", frame)
         print("Create the selecton using mouse, to save and exit press SPACE or ENTER to cancel press C")
-        self.roi = self.cv2.selectROI("Frame", frame)
+        self.roi = self.cv2.selectROI("Select ROI", frame)
         print(self.roi)
         if "save" in keys:
             # if set to True --> save to globals.json
             if kwargs["save"]:
                 save_to_data_file("roi", self.roi)
+        cap.release()
+        self.cv2.destroyAllWindows()
 
     def play_video_test(self):
         for video_path in self.video_list:
@@ -213,7 +215,7 @@ class VideoPlayer(Subject):
                     p1 = (int(bbox[0]), int(bbox[1]))
                     p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
                     cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
-                self.cv2.imshow("Frame", frame)
+                self.cv2.imshow("Video", frame)
 
                 # Pressing Esc key to stop
                 key = cv2.waitKey(1)
@@ -251,7 +253,7 @@ class VideoPlayer(Subject):
                 # Notify observers
                 self.notify()
 
-                self.cv2.imshow("Frame", self.frame)
+                self.cv2.imshow("Video", self.frame)
                 # Pressing Esc key to stop
                 key = cv2.waitKey(1)
                 if key == 27:
