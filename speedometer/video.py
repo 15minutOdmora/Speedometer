@@ -222,7 +222,7 @@ class VideoPlayer(Subject):
                 if key == 27:
                     break
 
-    def play(self):
+    def play(self, start_seconds=None):
         """
         Starts video, displays windows
         :return: None
@@ -231,6 +231,13 @@ class VideoPlayer(Subject):
             cap = self.cv2.VideoCapture(video_path)
             # Get first frames to extract size
             _, self.frame = cap.read()
+            # Check if start_seconds is set, open at that second
+            if start_seconds is not None:
+                # Calculate frame
+                frame_to_start = start_seconds * self.fps
+                # Set video at that frame
+                cap.set(1, frame_to_start - 1)
+            # Resize frame and get dimensions
             self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
             height, width, _ = self.frame.shape
             # Set roi

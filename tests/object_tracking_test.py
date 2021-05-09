@@ -3,8 +3,6 @@ from speedometer.timer import Timer
 from speedometer.object_tracking import ObjectTracking
 
 video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=15)
-# video.select_roi(save=True)
-# obt = ObjectTracking(video)
-
-# video.play()
+obt = ObjectTracking(video)
+video.play(start_seconds=49)
 

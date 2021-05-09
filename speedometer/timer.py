@@ -39,8 +39,8 @@ class VerticalLine:
         point2 = points[1]
         # Check if points have same x value, raise error if not
         if point1[0] == point2[0]:
-            self.point1 = point1
-            self.point2 = point2
+            self.point1 = tuple(point1)  # These have to be tuples, cv2.line expects tuples
+            self.point2 = tuple(point2)
             self.x = point1[0]
         else:
             raise ValueError("Line is not vertical, x values of points do not match.")
@@ -84,6 +84,14 @@ class VerticalLine:
         """
         return "Vertical line at x = {}.".format(self.x)
 
+    def __iter__(self):
+        """
+        Making class iterable, use for converting to tuple so that it can get saved in a json file
+        :return:
+        """
+        for point in [self.point1, self.point2]:  # Kind of weird solution
+            yield point
+
 
 class Timer(Observer):
     def __init__(self, video, **kwargs):
@@ -111,6 +119,11 @@ class Timer(Observer):
         self.DPP = None  # Distance Per Pixel (m/px)
         # Check kwargs
         keys = kwargs.keys()
+        # If save is set to True
+        self.save = False
+        if "save" in keys:  # For saving parameters in saved_data.json used in lines setter
+            if kwargs["save"]:
+                self.save = True
         # If load set to True
         if "load" in keys:
             if kwargs["load"]:
@@ -118,7 +131,7 @@ class Timer(Observer):
                 data = open_data_file()
                 data_keys = data.keys()
                 if "lines" in data_keys:
-                    self.lines = kwargs["lines"]
+                    self.lines = data["lines"]
                 else:
                     self.lines = None
                 pass
@@ -128,14 +141,6 @@ class Timer(Observer):
                 self.lines = kwargs["lines"]
             else:
                 self.lines = None
-
-        if "save" in keys:  # For saving parameters in saved_data.json used in lines setter
-            if kwargs["save"]:
-                self.save = True
-            else:
-                self.save = False
-        else:
-            self.save = False
 
         # Save file gets set in setter along with save_measured_data
         self._save_data_filename = None
@@ -170,11 +175,11 @@ class Timer(Observer):
         try:
             line1, line2, distance = lines[0], lines[1], lines[2]
             # Check if types match
-            if not isinstance(line1, tuple):
-                raise ValueError("Value for line1 is not a tuple.")
-            if not isinstance(line2, tuple):
-                raise ValueError("Value for line2 is not a tuple.")
-            if not(isinstance(distance, tuple) or isinstance(distance, int)):
+            if not (isinstance(line1, tuple) or isinstance(line1, list)):
+                raise ValueError("Value for line1 is not a tuple or a list.")
+            if not (isinstance(line2, tuple) or isinstance(line2, list)):
+                raise ValueError("Value for line2 is not a tuple or a list.")
+            if not(isinstance(distance, float) or isinstance(distance, int)):
                 raise ValueError("Value for variable distance is not a float or int.")
 
             # Finally: Create VerticalLines objects, assert left and right lines, min x val. is left line
@@ -194,9 +199,7 @@ class Timer(Observer):
 
             # Save data settings to saved_data.json
             if self.save:
-                data = {"left_line": self.left_line,
-                        "right_line": self.right_line,
-                        "distance": self.distance}
+                data = {"lines": (tuple(self.left_line), tuple(self.right_line), self.distance)}
                 save_to_data_file(data)
 
         except IndexError:
@@ -235,11 +238,14 @@ class Timer(Observer):
         pass
 
     def calculate_data_of_timed_object(self, obj):
+        """ Todo Calculate data of object """
+        print("Object Finished: ", obj)
         pass
 
     def update(self) -> None:
         """  TODO currently implemented for only one object tracker, should be for more
         Receive update from subject(ObjectDetection) while video is playing, assert objects position.
+        Checks which objects are in timing area, once the objects exits calculates its data.
         """
         # Get first tracker object
         tracker = self.obj_trackers[0]  # todo fix --> iterate through all detectors
@@ -255,13 +261,18 @@ class Timer(Observer):
                     self.calculate_data_of_timed_object(obj)
                     # Remove from currently measured
                     self.curr_measured.remove(obj)
-
             # If not tracked, check if in between lines
             else:
                 # If between lines save to curr_measured
                 if self.left_line > curr_pos > self.right_line:  # Other way around cause of __lt__, __gt__
                     self.curr_measured.append(obj)
-
+        # Clear objects that are being timed but are not in the tracker anymore
+        for timed_obj in self.curr_measured:
+            if timed_obj not in tracker.objects:
+                self.curr_measured.remove(timed_obj)
+        print("_____________________________________________________________________________________")
+        print("Tracker objects: ", tracker.objects)
+        print("Timer objects:   ", self.curr_measured)
         # Draw lines
         self.cv2.line(self.video.frame, self.left_line.point1, self.left_line.point2, (255, 0, 0), 2)
         self.cv2.line(self.video.frame, self.right_line.point1, self.right_line.point2, (255, 0, 0), 2)
@@ -342,13 +353,9 @@ class Timer(Observer):
             self.cv2.destroyAllWindows()
             # Check if save is set to true, save to globals
             if save:
-                # Todo Create save to file
-                """data_dict = {
-                    "left_line": start_line,
-                    "right_line": end_line,
-                    "distance": distance
-                }
-                save_to_data_file(data_dict)"""
+                # Right and left line are set by now by the lines setter
+                data = {"lines": (tuple(self.left_line), tuple(self.right_line), self.distance)}
+                save_to_data_file(data)
 
     def move_line(self):
         """ Todo Make function to move lines """

@@ -84,6 +84,16 @@ class Object:
             x_diff, y_diff = curr_pos
         return sum(x_diff)/self.num_of_points, sum(y_diff)/self.num_of_points
 
+    def __repr__(self):
+        """
+        Representation function of object.
+        :return: str
+        """
+        string = "Object(id: {}, center_pos: {}, num_of_points: {})".format(self.id,
+                                                                            self.center_points[-1],
+                                                                            self.num_of_points)
+        return string
+
 
 class ObjectTracking(Mediator):
     """
@@ -153,9 +163,8 @@ class ObjectTracking(Mediator):
         if not detected_objects:  # If there are no detections, delete the ones that haven't been seen in min_frame_diff
             for obj in self.objects:
                 frame_diff = curr_frame - obj.frames[-1]
-                if frame_diff > self.min_frame_diff:  # If frame diff. too bif --> remove object from objects list
+                if frame_diff > self.min_frame_diff:  # If frame diff. too big --> remove object from objects list
                     self.objects.remove(obj)
-            return
 
         if self.object_counter == 0:  # If no current objects exist
             for detection in detected_objects:
@@ -220,7 +229,6 @@ class ObjectTracking(Mediator):
                                  detection[2:4],
                                  detection[4])
                 self.objects.append(new_obj)
-                continue
 
     def update(self) -> None:
         """
