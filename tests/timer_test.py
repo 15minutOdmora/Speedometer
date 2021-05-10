@@ -5,7 +5,7 @@ from speedometer.object_tracking import ObjectTracking
 
 video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=15)
 obt = ObjectTracking(video)
-timer = Timer(video, load=True)
+timer = Timer(video, load=True, print=True)
 # timer.set_distance(load=True)
 video.play()
 # timer.set_distance(13)

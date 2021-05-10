@@ -2,6 +2,7 @@ from speedometer.Observer import Observer
 import json
 import cv2
 import os
+import math
 from time import time
 from datetime import datetime
 import csv
@@ -29,6 +30,16 @@ def save_to_data_file(dict):
 
     with open("saved_data.json", 'w') as glob:
         json.dump(data, glob)
+
+
+def euclid_dist(point1, point2):
+    """
+    Calculates the Euclidean distance between two points
+    :param point1: First point
+    :param point2: Second Point
+    :return: Distance
+    """
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
 class VerticalLine:
@@ -97,7 +108,7 @@ class Timer(Observer):
     def __init__(self, video, **kwargs):
         self.video = video
         self.cv2 = video.cv2  # Points at the same cv2 as video
-        self.curr_measured = []  # Currently measured objects(are between set lines)
+        self.curr_measured = dict()  # Currently measured objects {obj: {"start_frame": sindex, "end_frame": eindex}}
         self.obj_trackers = []  # Set list for object trackers
         # Get video FPS, and calculate constants
         self.FPS = self.video.fps  # Should always be set (fr/s)
@@ -152,6 +163,7 @@ class Timer(Observer):
                 filename += ".csv"
                 self.save_data_filename = filename
             self.save_data_filename = filename
+            self.save_measured_data = True
 
         self.print_measured = False  # Used to print object data when object is measured
         # If print measured is set to true
@@ -227,20 +239,71 @@ class Timer(Observer):
                                     "start_time",
                                     "end_time",
                                     "time_diff",
-                                    "direction",
-                                    "frames",
+                                    "x_dir",
+                                    "y_dir",
+                                    "start_frame",
+                                    "end_frame",
+                                    "frame_diff",
                                     "calculated_time",
                                     "speed_mps",
                                     "speed_kmh"])
 
     def save_to_file(self, data):
-        """ Todo function calculates speed, direction and other data, saves to file"""
+        """"""
+        print("Saving to file")
         pass
 
     def calculate_data_of_timed_object(self, obj):
-        """ Todo Calculate data of object """
-        print("Object Finished: ", obj)
-        pass
+        """
+        Method calculates final data of timed object, if print is set to true --> prints resoults to console
+        if save is set to true, passes data to above method save_to_file.
+        :param obj: Object at end
+        :return: None
+        """
+        # Get index of start and end from which the object was timed/measured
+        start_index = obj.frames.index(self.curr_measured[obj]["start_frame"])
+        end_index = obj.frames.index(self.curr_measured[obj]["end_frame"])
+        # Get start end time calculate difference
+        start_time = obj.times[start_index]
+        end_time = obj.times[end_index]
+        time_diff = end_time - start_time
+        # Get direction
+        x_dir, y_dir = obj.direction()
+        # Get start end frame, calculate diff.
+        start_frame = obj.frames[start_index]
+        end_frame = obj.frames[end_index]
+        frame_diff = end_frame - start_frame
+        # Calculate time based on frame diff
+        calculated_time = self.TPF * frame_diff
+        # Calculate speed in km/h and m/s
+        # Get distance by Distance Per Pixel
+        start_center_point = obj.center_points[start_index]
+        end_center_point = obj.center_points[end_index]
+        distance_in_px = euclid_dist(start_center_point, end_center_point)
+        distance_in_m = distance_in_px * self.DPP
+        # Calculate speed
+        speed_mps = round(distance_in_m / calculated_time, 2)
+        speed_kmh = round(speed_mps * 3.6, 2)
+        # Create data dict.
+        data = {"id": obj.id,
+                "start_time": start_time,
+                "end_time": end_time,
+                "time_diff": time_diff,
+                "x_dir": x_dir,
+                "y_dir": y_dir,
+                "start_frame": start_frame,
+                "end_frame": end_frame,
+                "frame_diff": frame_diff,
+                "calculated_time": calculated_time,
+                "speed_mps": speed_mps,
+                "speed_kmh": speed_kmh}
+        # If print to console/shell
+        if self.print_measured:
+            print("Object timed: ")
+            for key, value in data.items():
+                print("{}: {}".format(key, value), end=", ")
+        if self.save_measured_data:
+            self.save_to_file(data)
 
     def update(self) -> None:
         """  TODO currently implemented for only one object tracker, should be for more
@@ -253,26 +316,26 @@ class Timer(Observer):
         for obj in tracker.objects:
             curr_pos = obj.center_points[-1]  # Current center position
             # Check if object is being timed
-            if obj in self.curr_measured:
+            if obj in self.curr_measured.keys():
                 # Check if object is out of the measuring area (outside of lines)
                 # If measured and out of measuring area --> passed second line
-                if self.left_line < curr_pos > self.right_line or self.left_line > curr_pos < self.right_line:
+                if self.left_line <= curr_pos >= self.right_line or self.left_line > curr_pos < self.right_line:
+                    # Set end frame index of object
+                    self.curr_measured[obj]["end_frame"] = obj.frames[-1]
                     # Pass to calculate data
                     self.calculate_data_of_timed_object(obj)
                     # Remove from currently measured
-                    self.curr_measured.remove(obj)
+                    del self.curr_measured[obj]
             # If not tracked, check if in between lines
             else:
                 # If between lines save to curr_measured
-                if self.left_line > curr_pos > self.right_line:  # Other way around cause of __lt__, __gt__
-                    self.curr_measured.append(obj)
+                if self.left_line >= curr_pos >= self.right_line:  # Other way around cause of __lt__, __gt__
+                    # Create object in dictionary, save start frame --> frames are unique numbers(should not repeat)
+                    self.curr_measured[obj] = {"start_frame": obj.frames[-1]}
         # Clear objects that are being timed but are not in the tracker anymore
-        for timed_obj in self.curr_measured:
+        for timed_obj in self.curr_measured.keys():
             if timed_obj not in tracker.objects:
-                self.curr_measured.remove(timed_obj)
-        print("_____________________________________________________________________________________")
-        print("Tracker objects: ", tracker.objects)
-        print("Timer objects:   ", self.curr_measured)
+                del self.curr_measured[timed_obj]
         # Draw lines
         self.cv2.line(self.video.frame, self.left_line.point1, self.left_line.point2, (255, 0, 0), 2)
         self.cv2.line(self.video.frame, self.right_line.point1, self.right_line.point2, (255, 0, 0), 2)

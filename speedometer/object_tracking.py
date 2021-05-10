@@ -62,11 +62,28 @@ class Object:
     def direction(self) -> tuple:
         """
         Fuction calculates the direction of object by the first and last points of object
-        :return: tuple(x, y) => vector of direction
+        :return: tuple(x, y) where x, y are direction values(1 = positive, 0 = not moving, -1 = negative)
         """
         last_pos = self.center_points[-1]
         first_pos = self.center_points[0]
-        return last_pos[0] - first_pos[0], last_pos[1] - first_pos[1]
+        # Readability counts or smthin
+        # Set direction in x
+        x_diff = last_pos[0] - first_pos[0]
+        if x_diff > 0:
+            x_dir = 1
+        elif x_diff == 0:
+            x_dir = 0
+        else:
+            x_dir = -1
+        # Set direction in y
+        y_diff = last_pos[1] - first_pos[1]
+        if y_diff > 0:
+            y_dir = 1
+        elif y_diff == 0:
+            y_dir = 0
+        else:
+            y_dir = -1
+        return x_dir, y_dir
 
     def average_direction(self) -> tuple:
         """
