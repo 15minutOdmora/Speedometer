@@ -37,8 +37,6 @@ class Object:
         # Times get measured in case fps doesn't match up
         self.times = []
         self.times.append(time.time())
-        # Direction, gets set once the object is timed, 1 = moving right (x increasing), -1 = moving left (x decreasing)
-        self._direction = None  # Todo make possible in y-cords
 
     def add_point(self, frame, position, bounding_rect, center_point) -> None:
         """
@@ -58,7 +56,6 @@ class Object:
         """
         return sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points
 
-    @property
     def direction(self) -> tuple:
         """
         Fuction calculates the direction of object by the first and last points of object

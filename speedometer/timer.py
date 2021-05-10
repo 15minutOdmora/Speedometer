@@ -108,7 +108,8 @@ class Timer(Observer):
     def __init__(self, video, **kwargs):
         self.video = video
         self.cv2 = video.cv2  # Points at the same cv2 as video
-        self.curr_measured = dict()  # Currently measured objects {obj: {"start_frame": sindex, "end_frame": eindex}}
+        self.curr_measured = []  # List of curr. measured objects
+        self.curr_measured_dict = dict()  # Currently measured objects{obj:{"start_frame": sindex, "end_frame": eindex}}
         self.obj_trackers = []  # Set list for object trackers
         # Get video FPS, and calculate constants
         self.FPS = self.video.fps  # Should always be set (fr/s)
@@ -261,8 +262,8 @@ class Timer(Observer):
         :return: None
         """
         # Get index of start and end from which the object was timed/measured
-        start_index = obj.frames.index(self.curr_measured[obj]["start_frame"])
-        end_index = obj.frames.index(self.curr_measured[obj]["end_frame"])
+        start_index = obj.frames.index(self.curr_measured_dict[obj]["start_frame"])
+        end_index = obj.frames.index(self.curr_measured_dict[obj]["end_frame"])
         # Get start end time calculate difference
         start_time = obj.times[start_index]
         end_time = obj.times[end_index]
@@ -309,6 +310,7 @@ class Timer(Observer):
         """  TODO currently implemented for only one object tracker, should be for more
         Receive update from subject(ObjectDetection) while video is playing, assert objects position.
         Checks which objects are in timing area, once the objects exits calculates its data.
+        todo Fix error
         """
         # Get first tracker object
         tracker = self.obj_trackers[0]  # todo fix --> iterate through all detectors
@@ -316,26 +318,30 @@ class Timer(Observer):
         for obj in tracker.objects:
             curr_pos = obj.center_points[-1]  # Current center position
             # Check if object is being timed
-            if obj in self.curr_measured.keys():
+            if obj in self.curr_measured:
                 # Check if object is out of the measuring area (outside of lines)
                 # If measured and out of measuring area --> passed second line
                 if self.left_line <= curr_pos >= self.right_line or self.left_line > curr_pos < self.right_line:
+                    self.curr_measured.remove(obj)
                     # Set end frame index of object
-                    self.curr_measured[obj]["end_frame"] = obj.frames[-1]
+                    self.curr_measured_dict[obj]["end_frame"] = obj.frames[-1]
                     # Pass to calculate data
                     self.calculate_data_of_timed_object(obj)
                     # Remove from currently measured
-                    del self.curr_measured[obj]
+                    del self.curr_measured_dict[obj]
             # If not tracked, check if in between lines
             else:
                 # If between lines save to curr_measured
                 if self.left_line >= curr_pos >= self.right_line:  # Other way around cause of __lt__, __gt__
                     # Create object in dictionary, save start frame --> frames are unique numbers(should not repeat)
-                    self.curr_measured[obj] = {"start_frame": obj.frames[-1]}
+                    self.curr_measured.append(obj)
+                    self.curr_measured_dict[obj] = {"start_frame": obj.frames[-1]}
         # Clear objects that are being timed but are not in the tracker anymore
-        for timed_obj in self.curr_measured.keys():
+        for timed_obj in self.curr_measured:
             if timed_obj not in tracker.objects:
-                del self.curr_measured[timed_obj]
+                # Remove from list and dict
+                self.curr_measured.remove(timed_obj)
+                del self.curr_measured_dict[timed_obj]
         # Draw lines
         self.cv2.line(self.video.frame, self.left_line.point1, self.left_line.point2, (255, 0, 0), 2)
         self.cv2.line(self.video.frame, self.right_line.point1, self.right_line.point2, (255, 0, 0), 2)
