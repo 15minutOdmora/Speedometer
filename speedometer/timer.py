@@ -234,7 +234,7 @@ class Timer(Observer):
         else:
             self._save_data_filename = filename
             self.save_measured_data = True
-            with open(self._save_data_filename, mode='w') as file:
+            with open(self._save_data_filename, mode='w', newline="") as file:
                 data_file = csv.writer(file, delimiter=',')
                 data_file.writerow(["id",
                                     "start_time",
@@ -250,8 +250,16 @@ class Timer(Observer):
                                     "speed_kmh"])
 
     def save_to_file(self, data):
-        """"""
-        print("Saving to file")
+        """
+        Saves given data to file
+        :param data: dict(data_name: value, ...)
+        :return: None
+        """
+        # Dicts. are ordered from Python 3.7 up
+        data_list = data.values()
+        with open(self._save_data_filename, mode='a', newline="") as file:
+            data_file = csv.writer(file, delimiter=',')
+            data_file.writerow(data_list)
         pass
 
     def calculate_data_of_timed_object(self, obj):
