@@ -4,7 +4,7 @@
 """
 from speedometer.Observer import Subject, Observer
 from speedometer.object_tracking import ObjectTracking
-from speedometer.timer import Timer
+from speedometer.radar import Timer
 
 from pathlib import Path
 import json

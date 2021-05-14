@@ -104,7 +104,7 @@ class VerticalLine:
             yield point
 
 
-class Timer(Observer):
+class Radar(Observer):
     def __init__(self, video, **kwargs):
         self.video = video
         self.cv2 = video.cv2  # Points at the same cv2 as video
@@ -249,10 +249,10 @@ class Timer(Observer):
                                     "speed_mps",
                                     "speed_kmh"])
 
-    def save_to_file(self, data):
+    def save_to_file(self, data) -> None:
         """
         Saves given data to file
-        :param data: dict(data_name: value, ...)
+        :param data: dict[data_name: value, ...]
         :return: None
         """
         # Dicts. are ordered from Python 3.7 up
@@ -260,9 +260,8 @@ class Timer(Observer):
         with open(self._save_data_filename, mode='a', newline="") as file:
             data_file = csv.writer(file, delimiter=',')
             data_file.writerow(data_list)
-        pass
 
-    def calculate_data_of_timed_object(self, obj):
+    def calculate_data_of_timed_object(self, obj) -> None:
         """
         Method calculates final data of timed object, if print is set to true --> prints resoults to console
         if save is set to true, passes data to above method save_to_file.
@@ -436,4 +435,12 @@ class Timer(Observer):
 
     def move_line(self):
         """ Todo Make function to move lines """
+        pass
+
+    def set_two_distances(self, distance) -> None:
+        """ Todo Implement
+        Method opens a frame of the video, user can then select two lines that act as the same distance based on
+        perspective of camera.
+        :return: None
+        """
         pass
