@@ -5,9 +5,17 @@ import time
 
 class Object:
     """
-    Represents one object that is being tracked by the ObjectTracking object
+    Represents one object that is being tracked. Keeps track of positions, bounding rect. sizes,
+    Unix times of detections and frame, numbers of detections.
     """
     def __init__(self, id, frame, position, bounding_rect, center_point):
+        """
+        :param id: int -> Unique id of object.
+        :param frame: int -> Frame number of video as the object gets initialized.
+        :param position: list or tuple -> Position of object as a point(x, y) as it gets initialized.
+        :param bounding_rect: list or tuple -> Size of the bounding rectangle of object as a pair(width, height)
+        :param center_point: list or tuple -> Center point of object as a point(x, y)
+        """
         self.id = id
         self.num_of_points = 1  # Number of points (adds one when initialized)
         # List off all center positions of object (center of rectangle)
@@ -46,8 +54,8 @@ class Object:
 
     def direction(self) -> tuple:
         """
-        Fuction calculates the direction of object by the first and last points of object
-        :return: tuple(x, y) where x, y are direction values(1 = positive, 0 = not moving, -1 = negative)
+        Method calculates the direction of object by the first and last center points of object.
+        :return: tuple(x, y) -> where x, y are direction values, ether 1(positive), 0(not moving), -1(negative)
         """
         last_pos = self.center_points[-1]
         first_pos = self.center_points[0]
@@ -72,8 +80,8 @@ class Object:
 
     def average_direction(self) -> tuple:
         """
-        Function returns the average direction of the object as a vector [x, y] where size matters
-        :return: list: average direction [x, y] of the center point of object
+        Method calculates the average movement vector between two consecutive points.
+        :return: tuple(x, y) -> average direction in the x and y coordinates of the center point of object
         """
         x_diff, y_diff = [], []
         prev_x, prev_y = self.center_points[0]
@@ -86,9 +94,9 @@ class Object:
             x_diff, y_diff = curr_pos
         return sum(x_diff)/self.num_of_points, sum(y_diff)/self.num_of_points
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
-        Representation function of object.
+        Representation method of object.
         :return: str
         """
         string = "Object(id: {}, center_pos: {}, num_of_points: {})".format(self.id,
@@ -99,18 +107,35 @@ class Object:
 
 class ObjectTracking(Mediator):
     """
-    Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
     Detects and tracks objects based on different methods that are set when initialized.
+    Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
     """
-    def __init__(self, video, detection="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None):
+    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, **kwargs):
+        """
+        :param video: VideoPlayer object -> Is necessary as this class wraps it.
+        :param bkg_subtractor: str -> Type of background subtractor to use possible: "MOG", "MOG2"(preset), "GMG"
+        :param tracking: str -> Type of object tracking to use. Possible: "euclid"(preset)
+        :param object_parameters: dict -> Dict consisting of possible object size pairs object_name: [min_size, max_size]
+        :param min_frame_diff: int or float -> The minimal frame number an object can stand still(preset=20% of video fps)
+        :param max_point_distance: int or float -> The maximum distance(px) an object can travel between two frames
+        """
         self._observers: list = []
         self.video = video  # Video object acts as subject
         self.cv2 = video.cv2  # Match the cv2 module with Video object
-        self.object_detector = None
+        self.bkg_subtractor = None
 
-        # Set type of detection todo add personal one
-        if detection == "MOG2":
-            self.object_detector = self.video.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
+        # Set type of background subtraction
+        if bkg_subtractor == "MOG2":
+            self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
+        elif bkg_subtractor == "MOG":
+            self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorMOG()
+        elif bkg_subtractor == "GMG":
+            self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorGMG()
+
+        # Set type of tqacking
+        if tracking == "euclid":  # Euclidean distance
+            self.tracking = self.euclid  # Set the method to use currently only supports this
+
         # Object parameters describe the category of object by size [min_avg_size, max_avg_size]
         if object_parameters is None:
             self.object_parameters = {"human": [300, 600], "cyclist": [601, 750], "car": [750, 2500], "bus": [2500, 4000]}
@@ -144,8 +169,10 @@ class ObjectTracking(Mediator):
         return self._video
 
     @video.setter
-    def video(self, video_object):
-        """ This gets set when object is initialized """
+    def video(self, video_object) -> None:
+        """
+        This gets set when object is initialized
+        """
         self._video = video_object
         # Attach self to subject as an observer
         self._video.attach(self)
@@ -164,14 +191,16 @@ class ObjectTracking(Mediator):
 
     def notify(self) -> None:
         """
-        Notify all observers, mid video
+        Notify all observers(timers) of frame update
         """
         for observer in self._observers:
             observer.update()
 
-    def match(self, detected_objects):
+    def euclid(self, detected_objects) -> None:
         """
-        Matches detected objects with the already existing ones, deletes objects and creates new ones
+        Matches new detections with already tracked objects based on smallest euclidean distance,
+        clears old(non moving) objects and creates new tracked objects.
+        :param detected_objects: list -> List containing detected objects which are also lists[x, y, w, h, (cx, cy)]
         :return: None
         """
         curr_frame = self.video.frames
@@ -245,14 +274,14 @@ class ObjectTracking(Mediator):
 
     def update(self) -> None:
         """
-        Receive update from subject(VideoPlayer)
-        video playing.
+        Receive update from subject(VideoPlayer) at each frame when video is playing, apply roi bkg_subtractor,
+        find detections, ...
         """
         # video.roi has to be set by now
         x, y, w, h = self.video.roi
         roi = self.video.frame[y: y + h, x: x + w]
-        # Apply roi to object detection
-        self.mask = self.object_detector.apply(roi)
+        # Apply roi to background subtractor
+        self.mask = self.bkg_subtractor.apply(roi)
         _, self.mask = self.cv2.threshold(self.mask, 254, 255, self.cv2.THRESH_BINARY)  # BINARY
 
         # Find contours
@@ -270,7 +299,7 @@ class ObjectTracking(Mediator):
                 self.cv2.circle(roi, center_point, 3, (0, 0, 255), 3)
                 detected_objects.append([x, y, w, h, center_point])  # Save object to list
 
-        self.match(detected_objects)  # Pass to match, remove or add objects to list (a tracker basically)
+        self.tracking(detected_objects)  # Pass to the set tracking function
         # Notify observers (Timer)
         self.notify()
         self.cv2.imshow("Mask", self.mask)

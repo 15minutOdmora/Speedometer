@@ -154,7 +154,7 @@ class VideoPlayer(Subject):
         if "save" in keys:
             # if set to True --> save to globals.json
             if kwargs["save"]:
-                save_to_data_file("roi", self.roi)
+                save_to_data_file({"roi": self.roi})
         cap.release()
         self.cv2.destroyAllWindows()
 
