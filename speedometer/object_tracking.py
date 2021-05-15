@@ -1,18 +1,6 @@
-from __future__ import annotations
 from speedometer.Observer import Mediator, Observer
-
-import math
+from speedometer.helper_functions import euclid_dist
 import time
-
-
-def euclid_dist(point1, point2):
-    """
-    Calculates the Euclidean distance between two points
-    :param point1: First point
-    :param point2: Second Point
-    :return: Distance
-    """
-    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
 class Object:
@@ -137,7 +125,9 @@ class ObjectTracking(Mediator):
             self.min_frame_diff = min_frame_diff
         # max_point_distance is the maximum distance an object can move(in pixels) between two consecutive frames
         if max_point_distance is None:
-            self.max_point_distance = 500  # Todo calculate based on frames and cap size
+            # Assume the max_dist is at most 25% of the frame
+            width = self.video.width
+            self.max_point_distance = int(width * 0.25)  # Todo calculate based on frames and cap size
         else:
             self.max_point_distance = max_point_distance
         
@@ -148,6 +138,17 @@ class ObjectTracking(Mediator):
         # Number of object
         self.object_counter = 0
         self.all_detected_objects = 0  # Serves as a unique id for objects
+
+    @property
+    def video(self):
+        return self._video
+
+    @video.setter
+    def video(self, video_object):
+        """ This gets set when object is initialized """
+        self._video = video_object
+        # Attach self to subject as an observer
+        self._video.attach(self)
 
     def attach(self, observer: Observer) -> None:
         """
@@ -180,10 +181,9 @@ class ObjectTracking(Mediator):
                 if frame_diff > self.min_frame_diff:  # If frame diff. too big --> remove object from objects list
                     self.objects.remove(obj)
 
-        if self.object_counter == 0:  # If no current objects exist
+        if len(self.objects) == 0:  # If no current objects exist
             for detection in detected_objects:
                 # Update number of objects
-                self.object_counter += 1
                 self.all_detected_objects += 1
                 # Create new object
                 new_obj = Object(self.all_detected_objects,
@@ -235,7 +235,6 @@ class ObjectTracking(Mediator):
 
             # Remaining detections get created as new objects
             for detection in detected_objects:
-                self.object_counter += 1
                 self.all_detected_objects += 1
                 new_obj = Object(self.all_detected_objects,
                                  curr_frame,
@@ -275,14 +274,3 @@ class ObjectTracking(Mediator):
         # Notify observers (Timer)
         self.notify()
         self.cv2.imshow("Mask", self.mask)
-
-    @property
-    def video(self):
-        return self._video
-
-    @video.setter
-    def video(self, video_object):
-        """ This gets set when object is initialized """
-        self._video = video_object
-        # Attach self to subject as an observer
-        self._video.attach(self)

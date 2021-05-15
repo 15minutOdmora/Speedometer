@@ -1,45 +1,10 @@
 from speedometer.Observer import Observer
-import json
+from speedometer.helper_functions import open_data_file, save_to_data_file, euclid_dist
+
 import cv2
 import os
-import math
-from time import time
 from datetime import datetime
 import csv
-
-
-# TODO put these two functions in a separate file
-def open_data_file():
-    """ Opens the saved_data.json returns the dic.
-    :return: dict()
-    """
-    with open("saved_data.json", 'r') as glob:
-        data = json.load(glob)
-    return data
-
-
-def save_to_data_file(dict):
-    """ Saves the keys and values from dict to saved_data.json
-    :param dict: dict() containing key, value pairs
-    """
-    with open("saved_data.json", 'r') as glob:
-        data = json.load(glob)
-
-    for key, value in dict.items():
-        data[key] = value
-
-    with open("saved_data.json", 'w') as glob:
-        json.dump(data, glob)
-
-
-def euclid_dist(point1, point2):
-    """
-    Calculates the Euclidean distance between two points
-    :param point1: First point
-    :param point2: Second Point
-    :return: Distance
-    """
-    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
 class VerticalLine:
@@ -307,9 +272,15 @@ class Radar(Observer):
                 "speed_kmh": speed_kmh}
         # If print to console/shell
         if self.print_measured:
-            print("Object timed: ")
+            """print("Object timed: ")
             for key, value in data.items():
                 print("{}: {}".format(key, value), end=", ")
+            print("\n", end="")"""
+            time_date = datetime.utcfromtimestamp(int(end_time)).strftime("%H:%M:%S %d-%m-%y (+00:00 UTC)")
+            print_str = "Object({}) timed at: {}\n  ".format(obj.id, time_date)
+            for key, value in data.items():
+                print_str += "{}: {}, ".format(key, value)
+            print(print_str)
         if self.save_measured_data:
             self.save_to_file(data)
 

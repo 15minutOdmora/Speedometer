@@ -4,52 +4,12 @@
 """
 from speedometer.Observer import Subject, Observer
 from speedometer.object_tracking import ObjectTracking
-from speedometer.radar import Timer
+from speedometer.helper_functions import open_data_file, save_to_data_file, mmss_to_frames
 
-from pathlib import Path
 import json
-
 import time
 import cv2
 import os
-
-"""with open("globals.json", 'w') as glob:
-    data = {"roi": None}
-    json.dump(data, glob)"""
-
-
-def open_data_file():
-    """ Opens the globals.json returns the dic.
-    :return: distionary
-    """
-    with open("saved_data.json", 'r') as glob:
-        data = json.load(glob)
-    return data
-
-
-def save_to_data_file(key, value):
-    """ Saves key value pair to globals.json
-    :param key: Key
-    :param value: Value
-    """
-    with open("saved_data.json", 'r') as glob:
-        data = json.load(glob)
-
-    data[key] = value
-
-    with open("saved_data.json", 'w') as glob:
-        json.dump(data, glob)
-
-
-def mmss_to_frames(fps, m, s=0):
-    """
-    Converts minutes and seconds of video to frames based on fps
-    :param fps: frames per second of video
-    :param m: minutes
-    :param s: seconds
-    :return: frame number
-    """
-    return int((m * 60 + s) / fps)
 
 
 class VideoPlayer(Subject):
@@ -66,6 +26,8 @@ class VideoPlayer(Subject):
         self.video_list = video_path
 
         self._fps = fps
+        self.width = None
+        self.height = None
 
         # Check if saved_data.json exists, otherwise create it --> load roi if exists, else set to None
         if not os.path.exists("saved_data.json"):
@@ -83,6 +45,7 @@ class VideoPlayer(Subject):
                     self.roi = roi
 
         self.resize = resize
+        self.width, self.height = self.resize
 
         self.rotate = rotate
 
@@ -158,6 +121,7 @@ class VideoPlayer(Subject):
         if fps is None:  # If fps is set to None, read fps using cv2
             vid = cv2.VideoCapture(self.video_list[0])
             self._fps = int(vid.get(self.cv2.CAP_PROP_FPS))
+            # If we're already here set the frame size
         else:
             self._fps = fps
 
@@ -350,10 +314,4 @@ class VideoPlayer(Subject):
 
 
 if __name__ == "__main__":
-    video = VideoPlayer(r"C:\Users\Liam\PycharmProjects\CarDetection\Video\\", fps=15)
-    # video.select_roi(save=True)
-    obt = ObjectTracking(video)
-    timer = Timer(video)
-    timer.set_lines(save=True)
-    # video.play()
     pass
