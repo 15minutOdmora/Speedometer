@@ -3,7 +3,6 @@
  OpenCV trackers are useless as they're slow aff
 """
 from speedometer.Observer import Subject, Observer
-from speedometer.object_tracking import ObjectTracking
 from speedometer.helper_functions import open_data_file, save_to_data_file, mmss_to_frames
 
 import json
@@ -13,22 +12,32 @@ import os
 
 
 class VideoPlayer(Subject):
-    def __init__(self, video_path, fps=None, roi=None, resize=(640, 360), rotate=False):
+    """
+    VideoPlayer class plays set videos in video_path using cv2, has methods for setting roi, recording certain parts of
+    videos, ...
+    """
+    def __init__(self, video_path, fps=None, roi=None, resize=(640, 360), rotate=None, display=True):
+        """
+        :param video_path: str or list -> Video to be played, can be: rtsp url, video path or folder path, in case of
+        folder path, the player will play each file in the directory.
+        :param fps: int -> Frames Per Second of camera. If None -> gets set by reading it from camera/video.
+        :param roi: tuple(tuple, tuple) -> Pair of points defining the upper left corner and bottom left corner of the
+        Region Of Interest.
+        :param resize: tuple(width, height) -> The size the window should be resized to. Preset: (640, 360).
+        :param rotate: str -> If image needs to be rotated, possible: '90c'(90degrees clockwise),
+        '90cc'(90 degrees counterclockwise), '180'(180 degrees).
+        :param display: bool -> If the video frame should be displayed.
+        """
         self.observers: list = []
-
         self.cv2 = cv2
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
-
         # Current frames the video is on, gets reset once the video goes to the next
         self._frames = 0
-
         # video_path is a string when initialized, converted to a list containing file_name strings by the setter
         self.video_list = video_path
-
         self._fps = fps
         self.width = None
         self.height = None
-
         # Check if saved_data.json exists, otherwise create it --> load roi if exists, else set to None
         if not os.path.exists("saved_data.json"):
             with open('saved_data.json', 'w') as data_file:
@@ -43,12 +52,10 @@ class VideoPlayer(Subject):
                     self.roi = saved_data["roi"]
                 else:
                     self.roi = roi
-
         self.resize = resize
         self.width, self.height = self.resize
-
-        self.rotate = rotate
-
+        self.display = display
+        self._rotate = rotate
         # Gets set when video is playing
         self.frame = None
         self.ret = None
@@ -118,17 +125,42 @@ class VideoPlayer(Subject):
 
     @fps.setter
     def fps(self, fps):
+        """
+        Setter for fps, if fps is none, reads fps from video/camera.
+        :param fps: int
+        :return: None
+        """
         if fps is None:  # If fps is set to None, read fps using cv2
             vid = cv2.VideoCapture(self.video_list[0])
             self._fps = int(vid.get(self.cv2.CAP_PROP_FPS))
-            # If we're already here set the frame size
         else:
             self._fps = fps
 
+    @property
+    def rotate(self):
+        return self._rotate
+
+    @rotate.setter
+    def rotate(self, degrees):
+        """
+        Setter for rotate sets the rotation of image.
+        :param degrees: str
+        :return: None
+        """
+        possible_rotations = {"90c": self.cv2.ROTATE_90_CLOCKWISE,
+                              "90cc": self.cv2.ROTATE_90_COUNTERCLOCKWISE,
+                              "180": self.cv2.ROTATE_180}
+        if degrees is None:
+            self._rotate = None
+        elif degrees in possible_rotations.keys():
+            self._rotate = possible_rotations[degrees]
+        else:
+            raise ValueError("Rotation degrees set incorrectly. Should be one of: None, '90c', '90cc', '180'")
+
     def select_roi(self, **kwargs):
         """  TODO cv2.roi prints command description after selection, should get rid of it, fix so seconds can get passed
-        Opens video with a ROI selector on given frame or time set in kwargs,
-        :param kwargs: frames= or min= or min= and sec=
+        Opens video with a ROI selector on given frame or time set in kwargs, saves the selection to saved_data.json
+        :param kwargs: int frames=, int min=, int min= and int sec=
         :return: None
         """
         keys = kwargs.keys()
@@ -158,37 +190,9 @@ class VideoPlayer(Subject):
         cap.release()
         self.cv2.destroyAllWindows()
 
-    def play_video_test(self):
-        for video_path in self.video_list:
-            tracker = cv2.TrackerMOSSE_create()
-
-            cap = self.cv2.VideoCapture(video_path)
-            _, frame = cap.read()
-
-            ok = tracker.init(frame, self.roi)
-
-            while True:
-                self.frames += 1
-                ok, frame = cap.read()
-
-                ok, bbox = tracker.update(frame)
-
-                # Draw bounding box
-                if ok:
-                    # Tracking success
-                    p1 = (int(bbox[0]), int(bbox[1]))
-                    p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-                    cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
-                self.cv2.imshow("Video", frame)
-
-                # Pressing Esc key to stop
-                key = cv2.waitKey(1)
-                if key == 27:
-                    break
-
     def play(self, start_seconds=None):
         """
-        Starts video, displays windows
+        Starts video, displays windows if set to true.
         :return: None
         """
         for video_path in self.video_list:
@@ -201,6 +205,10 @@ class VideoPlayer(Subject):
                 frame_to_start = start_seconds * self.fps
                 # Set video at that frame
                 cap.set(1, frame_to_start - 1)
+
+            # If rotate is set -> rotate image
+            if self.rotate is not None:
+                self.frame = self.cv2.rotate(self.frame, self.rotate)
             # Resize frame and get dimensions
             self.frame = self.cv2.resize(self.frame, self.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
             height, width, _ = self.frame.shape
@@ -211,9 +219,9 @@ class VideoPlayer(Subject):
             while cap.isOpened():
                 self.frames += 1
                 self.ret, self.frame = cap.read()
-                # If rotate set to true
-                if self.rotate:
-                    self.frame = self.cv2.rotate(self.frame, self.cv2.ROTATE_180)
+                # If rotate is set -> rotate image
+                if self.rotate is not None:
+                    self.frame = self.cv2.rotate(self.frame, self.rotate)
 
                 if self.frame is None:  # End of video
                     break
@@ -223,8 +231,9 @@ class VideoPlayer(Subject):
 
                 # Notify observers
                 self.notify()
-
-                self.cv2.imshow("Video", self.frame)
+                # Display windows if set to true
+                if self.display:
+                    self.cv2.imshow("Video", self.frame)
                 # Pressing Esc key to stop
                 key = cv2.waitKey(1)
                 if key == 27:
@@ -245,10 +254,10 @@ class VideoPlayer(Subject):
     def record(self, filename, sec, codec="mp4v", fps=None):
         """
         Records and saves video to given filename in current directory
-        :param filename: Name of the file, extension should match the codec
-        :param sec: int number of seconds to record
-        :param codec: Type of codec, string based on cv2 codecs and the codecs your pc supports
-        :param fps: int number of Frames Per Second, if the cv2 measured ones are incorrect
+        :param filename: str -> Name of the file, extension should match the codec
+        :param sec: int -> Number of seconds to record
+        :param codec: str -> Type of codec, string based on cv2 codecs and the codecs your pc supports
+        :param fps: int -> Number of Frames Per Second, if the cv2 measured ones are incorrect
         :return: None
         """
         for video_path in self.video_list:

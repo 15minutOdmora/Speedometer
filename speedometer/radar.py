@@ -70,7 +70,19 @@ class VerticalLine:
 
 
 class Radar(Observer):
+    """
+    Radar class calculates the speed of object, has two lines as a timing field, can save measured data to a csv file
+    """
     def __init__(self, video, **kwargs):
+        """
+        :param video: VideoPlayer object, is needed as the class wraps all of its observers(ObjectDetectors).
+        :param save: bool -> If all set settings should be saved to saved_data.json. Preset: False
+        :param load: bool -> If data should be loaded from saved_data.json
+        :param lines: list[list[list[], list[]], list[list[], list[]]] -> list of two lines, each line is represented
+        by a list consisting of two points where each point is a list pair [x, y] -> could all be tuples.
+        :param out_file: str -> Filename of csv file, if the param. is set to some string -> data gets saved to file.
+        :param print_measured:  bool -> If measured objects should be printed out to the console/shell.
+        """
         self.video = video
         self.cv2 = video.cv2  # Points at the same cv2 as video
         self.curr_measured = []  # List of curr. measured objects
@@ -190,7 +202,7 @@ class Radar(Observer):
         return self._save_data_filename
 
     @save_data_filename.setter
-    def save_data_filename(self, filename):
+    def save_data_filename(self, filename) -> None:
         # Check if filename alredy exists
         if os.path.exists(filename):
             self._save_data_filename = filename
@@ -216,7 +228,7 @@ class Radar(Observer):
 
     def save_to_file(self, data) -> None:
         """
-        Saves given data to file
+        Saves given data to csv file.
         :param data: dict[data_name: value, ...]
         :return: None
         """
@@ -228,9 +240,9 @@ class Radar(Observer):
 
     def calculate_data_of_timed_object(self, obj) -> None:
         """
-        Method calculates final data of timed object, if print is set to true --> prints resoults to console
+        Method calculates final data of timed object, if print is set to true --> prints results to console/shell
         if save is set to true, passes data to above method save_to_file.
-        :param obj: Object at end
+        :param obj: Object
         :return: None
         """
         # Get index of start and end from which the object was timed/measured
@@ -286,9 +298,9 @@ class Radar(Observer):
 
     def update(self) -> None:
         """  TODO currently implemented for only one object tracker, should be for more
-        Receive update from subject(ObjectDetection) while video is playing, assert objects position.
-        Checks which objects are in timing area, once the objects exits calculates its data.
-        todo Fix error
+        Receive update from subject(ObjectDetection) while video is playing, check objects position.
+        Checks which objects are in timing area, once the objects exits -> calculates its data.
+        :return: None
         """
         # Get first tracker object
         tracker = self.obj_trackers[0]  # todo fix --> iterate through all detectors
@@ -326,12 +338,12 @@ class Radar(Observer):
 
     def set_distance(self, distance=None, save=False):
         """
-        Opens a frame of the set video, can then set the distance between two points, creating two vertical lines
-        at each. These lines act as start/end points for the timer, the input distance should be in meters as per
-        real life.
+        Opens a frame of the set video, user can then set the distance between two points, creating two vertical lines
+        at each point marking the timing area. These lines act as start/end points for the timer, the input distance
+        should be in meters as per real life.
         :param distance: float --> representing meters of distance between points in real life
         :param save: bool --> if the distance and points should get saved to saved_data.json
-        :return:
+        :return: None
         """
         # Check if distance variable was already set
         # Print instructions

@@ -110,7 +110,7 @@ class ObjectTracking(Mediator):
     Detects and tracks objects based on different methods that are set when initialized.
     Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
     """
-    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, **kwargs):
+    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, display=True):
         """
         :param video: VideoPlayer object -> Is necessary as this class wraps it.
         :param bkg_subtractor: str -> Type of background subtractor to use possible: "MOG", "MOG2"(preset), "GMG"
@@ -118,6 +118,7 @@ class ObjectTracking(Mediator):
         :param object_parameters: dict -> Dict consisting of possible object size pairs object_name: [min_size, max_size]
         :param min_frame_diff: int or float -> The minimal frame number an object can stand still(preset=20% of video fps)
         :param max_point_distance: int or float -> The maximum distance(px) an object can travel between two frames
+        :param display: bool -> If the mask video should be displayed at each frame. Preset: True
         """
         self._observers: list = []
         self.video = video  # Video object acts as subject
@@ -157,6 +158,7 @@ class ObjectTracking(Mediator):
             self.max_point_distance = max_point_distance
         
         self.mask = None
+        self.display = display
 
         # List of all detected objects
         self.objects = []
@@ -302,4 +304,5 @@ class ObjectTracking(Mediator):
         self.tracking(detected_objects)  # Pass to the set tracking function
         # Notify observers (Timer)
         self.notify()
-        self.cv2.imshow("Mask", self.mask)
+        if self.display:
+            self.cv2.imshow("Mask", self.mask)
