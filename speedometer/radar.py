@@ -15,9 +15,14 @@ class VerticalLine:
         point2 = points[1]
         # Check if points have same x value, raise error if not
         if point1[0] == point2[0]:
-            self.point1 = tuple(point1)  # These have to be tuples, cv2.line expects tuples
-            self.point2 = tuple(point2)
-            self.x = point1[0]
+            # Point 1 is always the upper point on screen => min. y value
+            points = [point1, point2]
+            y_points = [point1[1], point2[1]]
+            index_min = y_points.index(min(y_points))
+            index_max = y_points.index(max(y_points))
+            self.point1 = tuple(points[index_min])  # These have to be tuples, cv2.line expects tuples
+            self.point2 = tuple(points[index_max])
+            self.x = lambda y: point1[0]  # This is a function, when line is vertical x- point is always the same
         else:
             raise ValueError("Line is not vertical, x values of points do not match.")
 
@@ -69,6 +74,85 @@ class VerticalLine:
             yield point
 
 
+class Line:
+    """ Class representing a line """
+    def __init__(self, points):
+        # Points = ((x1, y1), (x1, y2))
+        point1 = points[0]
+        point2 = points[1]
+        # Point 1 is always the upper point on screen => min. y value
+        points = [point1, point2]
+        y_points = [point1[1], point2[1]]
+        index_min = y_points.index(min(y_points))
+        index_max = y_points.index(max(y_points))
+        self.point1 = tuple(points[index_min])  # These have to be tuples, cv2.line expects tuples
+        self.point2 = tuple(points[index_max])
+        # Create function for calculating x val. given y val. -> Inverse of y = kx + n ==> x = (y - n)/k
+        # Check if the line is vertical
+        if self.point1[0] == self.point2[0]:
+            self.x = lambda y: self.point1[0]
+            self.vertical = True
+        else:
+            # Calculate k
+            dx, dy = self.point1[0] - self.point2[0], self.point1[1] - self.point2[1]
+            self.k = dy/dx
+            # Calculate n, pick point1 as ref.
+            self.n = self.point1[1] - self.k * self.point1[0]
+            # Create inverse function
+            self.x = lambda y: int((y - self.n)/self.k)
+            self.vertical = False
+
+    def __lt__(self, point):
+        """
+        Less than(is on left side): Compares x value of point to x value of line
+        :param point: tuple(x, y)
+        :return: bool
+        """
+        return point[0] < self.x(point[1])
+
+    def __gt__(self, point):
+        """
+        More than(is on right side): Compares x value of point to x value of line
+        :param point: tuple(x, y)
+        :return: bool
+        """
+        return point[0] > self.x(point[1])
+
+    def __le__(self, point):
+        """
+        Less than equal(is on left side): Compares x value of point to x value of line
+        :param point: tuple(x, y)
+        :return: bool
+        """
+        return point[0] <= self.x(point[1])
+
+    def __ge__(self, point):
+        """
+        More than equal(is on right side): Compares x value of point to x value of line
+        :param point: tuple(x, y)
+        :return: bool
+        """
+        return point[0] >= self.x(point[1])
+
+    def __repr__(self):
+        """
+        Representation of object used for printing.
+        :return: str
+        """
+        if self.vertical:
+            return "Vertical line at x = {}.".format(self.point1[0])
+        else:
+            return "Line: y = {}x + n".format(round(self.k, 2), round(self.n, 2))
+
+    def __iter__(self):
+        """
+        Making class iterable, use for converting to tuple so that it can get saved in a json file
+        :return:
+        """
+        for point in [self.point1, self.point2]:  # Kind of weird solution todo Fix
+            yield point
+
+
 class Radar(Observer):
     """
     Radar class calculates the speed of object, has two lines as a timing field, can save measured data to a csv file
@@ -105,7 +189,7 @@ class Radar(Observer):
         self.left_line = None
         self.right_line = None
         self.distance = None
-        self.DPP = None  # Distance Per Pixel (m/px)
+        self.dpp = None  # Distance Per Pixel (m/px) based on y point of frame (as per space perception)
         # Check kwargs
         keys = kwargs.keys()
         # If save is set to True
@@ -172,10 +256,16 @@ class Radar(Observer):
             if not(isinstance(distance, float) or isinstance(distance, int)):
                 raise ValueError("Value for variable distance is not a float or int.")
 
-            # Finally: Create VerticalLines objects, assert left and right lines, min x val. is left line
-            line1, line2, distance = VerticalLine(lines[0]), VerticalLine(lines[1]), lines[2]
+            # Finally: Try creating VerticalLines objects, assert left and right lines, min x val. is left line
+            try:
+                line1, line2, distance = VerticalLine(lines[0]), VerticalLine(lines[1]), lines[2]
+                vertical = True
+            except ValueError:  # If this happens -> lines are not vertical, create normal lines
+                line1, line2, distance = Line(lines[0]), Line(lines[1]), lines[2]
+                vertical = False
+
             lines_ = [line1, line2]
-            x_points = [line1.x, line2.x]
+            x_points = [line1.point1[0], line2.point1[0]]
             index_min = x_points.index(min(x_points))
             index_max = x_points.index(max(x_points))
             self.left_line = lines_[index_min]
@@ -183,9 +273,20 @@ class Radar(Observer):
             self.distance = distance
             self._lines = (self.left_line, self.right_line, self.distance)
             print(self.left_line, self.right_line)
-            # Calculate DPP
-            dist_between_lines = self.right_line.x - self.left_line.x # Distance in px
-            self.DPP = self.distance / dist_between_lines
+
+            # Set the distance between lines at given y-val.(height of screen)
+            if vertical:  # If lines are vertical, dpp is a constant, pixel difference can be cal. between top points
+                dist_between_lines_px = self.right_line.point1[0] - self.left_line.point1[0]  # Distance in px
+                self.dpp = lambda y: self.distance / dist_between_lines_px
+            else:  # If not vertical, distance changes per height and is not constant
+                # Calculate lines intersection with top of screen(y=0) and bottom(y=height) of screen
+                # But we only need the distance in x between the intersections marked as dtx and dbx
+                h = self.video.height
+                dtx = self.right_line.x(0) - self.left_line.x(0)
+                dbx = self.right_line.x(h) - self.right_line.x(h)
+                delta_d = dbx - dtx  # order is important, as the sign determines the slope of dpp
+                self.dpp = lambda y: self.distance / ((y / h) * delta_d + dtx)
+                # Explained in the math folder of repo.
 
             # Save data settings to saved_data.json
             if self.save:
@@ -265,7 +366,9 @@ class Radar(Observer):
         start_center_point = obj.center_points[start_index]
         end_center_point = obj.center_points[end_index]
         distance_in_px = euclid_dist(start_center_point, end_center_point)
-        distance_in_m = distance_in_px * self.DPP
+        avg_height = int(start_center_point[1] + end_center_point[1] / 2)
+        distance_in_m = distance_in_px * self.dpp(avg_height)  # Doing this with avg. height isn't optimal, as the dist.
+        # changes with height, but assuming the objects are moving horizontally this works fine
         # Calculate speed
         speed_mps = round(distance_in_m / calculated_time, 2)
         speed_kmh = round(speed_mps * 3.6, 2)
@@ -332,7 +435,7 @@ class Radar(Observer):
                 # Remove from list and dict
                 self.curr_measured.remove(timed_obj)
                 del self.curr_measured_dict[timed_obj]
-        # Draw lines
+        # Draw lines on frames
         self.cv2.line(self.video.frame, self.left_line.point1, self.left_line.point2, (255, 0, 0), 2)
         self.cv2.line(self.video.frame, self.right_line.point1, self.right_line.point2, (255, 0, 0), 2)
 
@@ -420,10 +523,81 @@ class Radar(Observer):
         """ Todo Make function to move lines """
         pass
 
-    def set_two_distances(self, distance) -> None:
-        """ Todo Implement
+    def set_two_distances(self, distance, save=False) -> None:
+        """ Todo Implement correctly
         Method opens a frame of the video, user can then select two lines that act as the same distance based on
         perspective of camera.
+        :param distance: float -> distance irl. in meters
+        :param save: bool -> If the lines should be saved to saved_data.json
         :return: None
         """
-        pass
+        # Check if distance variable was already set
+        # Print instructions
+        instr = "\nSelect lines button controls:\nLEFT MOUSE BUTTON to select start point of line, drag and " \
+                "release to draw " \
+                "line\nRIGHT MOUSE BUTTON to reset/delete all drawn lines\ns BUTTON(lowercase) to save and exit\n" \
+                "esc BUTTON to exit without saving to object\n\n" \
+                "The last two drawn line will be saved as " \
+                "start and end lines. \nFirst line drawn is start line(colored green) second is end line" \
+                "(colored red)."
+        print(instr)
+
+        start_point = [None]
+        end_point = [None]
+
+        # Get one frame of video
+        cap = self.cv2.VideoCapture(self.video.video_list[0])
+        _, frame = cap.read()
+        # Resize frame so roi matches at the end
+        frame = self.cv2.resize(frame, self.video.resize, fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+        _, height = self.video.resize
+        # todo fix this utter disgrace of a solution
+        frame_copy = [frame.copy()]  # Single cell dirty trick, you can't change this var. inside bottom fun. otherwise
+
+        def on_mouse(event, x, y, flags, params):
+            """
+            Method for on_mouse click events when setting the line
+            :return: None
+            """
+            # LEFT MOUSE BUTTON CLICK UP --> Set start_point
+            if event == self.cv2.EVENT_LBUTTONDOWN:
+                start_point[0] = (x, y)
+            # LEFT MOUSE BUTTON CLICK UP --> Set end_point and draw line
+            elif event == self.cv2.EVENT_LBUTTONUP:
+                end_point[0] = (x, y)
+                # Draw line when we get 2nd point
+                self.cv2.line(frame_copy[0], start_point[0], end_point[0], (0, 255, 0), 2)
+                # Draw vertical lines at each side
+                vert1 = ((start_point[0][0], 0), (start_point[0][0], height))
+                vert2 = ((end_point[0][0], 0), (end_point[0][0], height))
+                self.cv2.line(frame_copy[0], vert1[0], vert1[1], (255, 0, 0), 2)
+                self.cv2.line(frame_copy[0], vert2[0], vert2[1], (255, 0, 0), 2)
+                # Refresh window
+                self.cv2.imshow('Select distance', frame_copy[0])
+            # RIGHT MOUSE BUTTON CLICK --> reset whole image
+            elif event == self.cv2.EVENT_RBUTTONDOWN:
+                # Set frame to original todo make undo possible and not reset
+                frame_copy[0] = frame.copy()
+                start_point[0] = None
+                end_point[0] = None
+                self.cv2.imshow('Select distance', frame_copy[0])
+
+        self.cv2.imshow('Select distance', frame)
+        self.cv2.setMouseCallback('Select distance', on_mouse)
+        key = self.cv2.waitKey(0)
+        if key == 27:  # 27 = esc in ASCII table
+            print("Exiting")
+            cap.release()
+            self.cv2.destroyAllWindows()
+        elif key == 115:  # 115 = s in ASCII table
+            # Assert left and right lines, min x val is left line
+            vert1 = ((start_point[0][0], 0), (start_point[0][0], height))
+            vert2 = ((end_point[0][0], 0), (end_point[0][0], height))
+            self.lines = (vert1, vert2, distance)  # Pass to setter
+            cap.release()
+            self.cv2.destroyAllWindows()
+            # Check if save is set to true, save to globals
+            if save:
+                # Right and left line are set by now by the lines setter
+                data = {"lines": (tuple(self.left_line), tuple(self.right_line), self.distance)}
+                save_to_data_file(data)
