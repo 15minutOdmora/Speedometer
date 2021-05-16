@@ -454,9 +454,7 @@ class Radar(Observer):
                 "release to draw " \
                 "line\nRIGHT MOUSE BUTTON to reset/delete all drawn lines\ns BUTTON(lowercase) to save and exit\n" \
                 "esc BUTTON to exit without saving to object\n\n" \
-                "The last two drawn line will be saved as " \
-                "start and end lines. \nFirst line drawn is start line(colored green) second is end line" \
-                "(colored red)."
+                "The last drawn line will be saved as the distance."
         print(instr)
 
         start_point = [None]
@@ -507,7 +505,7 @@ class Radar(Observer):
             cap.release()
             self.cv2.destroyAllWindows()
         elif key == 115:  # 115 = s in ASCII table
-            # Assert left and right lines, min x val is left line
+            # Determine left and right lines, min x val is left line
             vert1 = ((start_point[0][0], 0), (start_point[0][0], height))
             vert2 = ((end_point[0][0], 0), (end_point[0][0], height))
             self.lines = (vert1, vert2, distance)  # Pass to setter
@@ -524,7 +522,7 @@ class Radar(Observer):
         pass
 
     def set_two_distances(self, distance, save=False) -> None:
-        """ Todo Implement correctly
+        """ Todo This works but it assumes the user(me) isn't a retard which is not good
         Method opens a frame of the video, user can then select two lines that act as the same distance based on
         perspective of camera.
         :param distance: float -> distance irl. in meters
@@ -538,12 +536,13 @@ class Radar(Observer):
                 "line\nRIGHT MOUSE BUTTON to reset/delete all drawn lines\ns BUTTON(lowercase) to save and exit\n" \
                 "esc BUTTON to exit without saving to object\n\n" \
                 "The last two drawn line will be saved as " \
-                "start and end lines. \nFirst line drawn is start line(colored green) second is end line" \
-                "(colored red)."
+                "distance lines. \n"
         print(instr)
 
-        start_point = [None]
-        end_point = [None]
+        f_line_start_points = [None]
+        f_line_end_points = [None]
+        s_line_start_points = [None]
+        s_line_end_points = [None]
 
         # Get one frame of video
         cap = self.cv2.VideoCapture(self.video.video_list[0])
@@ -561,25 +560,38 @@ class Radar(Observer):
             """
             # LEFT MOUSE BUTTON CLICK UP --> Set start_point
             if event == self.cv2.EVENT_LBUTTONDOWN:
-                start_point[0] = (x, y)
+                # Check if first line was already set
+                if f_line_start_points[0] is None:
+                    f_line_start_points[0] = (x, y)
+                    f_line_end_points[0] = None
+                else:
+                    s_line_start_points[0] = (x, y)
+                    s_line_end_points[0] = None
+                # start_points.append((x, y))
             # LEFT MOUSE BUTTON CLICK UP --> Set end_point and draw line
             elif event == self.cv2.EVENT_LBUTTONUP:
-                end_point[0] = (x, y)
-                # Draw line when we get 2nd point
-                self.cv2.line(frame_copy[0], start_point[0], end_point[0], (0, 255, 0), 2)
-                # Draw vertical lines at each side
-                vert1 = ((start_point[0][0], 0), (start_point[0][0], height))
-                vert2 = ((end_point[0][0], 0), (end_point[0][0], height))
-                self.cv2.line(frame_copy[0], vert1[0], vert1[1], (255, 0, 0), 2)
-                self.cv2.line(frame_copy[0], vert2[0], vert2[1], (255, 0, 0), 2)
+                if f_line_end_points[0] is None:
+                    f_line_end_points[0] = (x, y)
+                    # Draw line when we get 2nd point
+                    self.cv2.line(frame_copy[0], f_line_start_points[0], f_line_end_points[0], (0, 255, 0), 2)
+                else:
+                    s_line_end_points[0] = (x, y)
+                    # Draw line when we get 2nd point
+                    self.cv2.line(frame_copy[0], s_line_start_points[0], s_line_end_points[0], (0, 255, 0), 2)
+                    # If both lines are drawn -> draw timing lines in blue
+                    self.cv2.line(frame_copy[0], f_line_start_points[0], s_line_start_points[0], (255, 0, 0), 2)
+                    self.cv2.line(frame_copy[0], f_line_end_points[0], s_line_end_points[0], (255, 0, 0), 2)
                 # Refresh window
                 self.cv2.imshow('Select distance', frame_copy[0])
+
             # RIGHT MOUSE BUTTON CLICK --> reset whole image
             elif event == self.cv2.EVENT_RBUTTONDOWN:
                 # Set frame to original todo make undo possible and not reset
                 frame_copy[0] = frame.copy()
-                start_point[0] = None
-                end_point[0] = None
+                f_line_start_points[0] = None
+                f_line_end_points[0] = None
+                s_line_start_points[0] = None
+                s_line_end_points[0] = None
                 self.cv2.imshow('Select distance', frame_copy[0])
 
         self.cv2.imshow('Select distance', frame)
@@ -590,9 +602,8 @@ class Radar(Observer):
             cap.release()
             self.cv2.destroyAllWindows()
         elif key == 115:  # 115 = s in ASCII table
-            # Assert left and right lines, min x val is left line
-            vert1 = ((start_point[0][0], 0), (start_point[0][0], height))
-            vert2 = ((end_point[0][0], 0), (end_point[0][0], height))
+            vert1 = (f_line_start_points[0], s_line_start_points[0])
+            vert2 = (f_line_end_points[0], s_line_end_points[0])
             self.lines = (vert1, vert2, distance)  # Pass to setter
             cap.release()
             self.cv2.destroyAllWindows()
