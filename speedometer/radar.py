@@ -32,7 +32,7 @@ class VerticalLine:
         :param point: tuple(x, y)
         :return: bool
         """
-        return point[0] < self.x
+        return point[0] < self.x(point[1])
 
     def __gt__(self, point):
         """
@@ -40,7 +40,7 @@ class VerticalLine:
         :param point: tuple(x, y)
         :return: bool
         """
-        return point[0] > self.x
+        return point[0] > self.x(point[1])
 
     def __le__(self, point):
         """
@@ -48,7 +48,7 @@ class VerticalLine:
         :param point: tuple(x, y)
         :return: bool
         """
-        return point[0] <= self.x
+        return point[0] <= self.x(point[1])
 
     def __ge__(self, point):
         """
@@ -56,14 +56,14 @@ class VerticalLine:
         :param point: tuple(x, y)
         :return: bool
         """
-        return point[0] >= self.x
+        return point[0] >= self.x(point[1])
 
     def __repr__(self):
         """
         Representation of object used for printing.
         :return: str
         """
-        return "Vertical line at x = {}.".format(self.x)
+        return "Vertical line at x = {}.".format(self.point1[0])
 
     def __iter__(self):
         """
@@ -142,7 +142,7 @@ class Line:
         if self.vertical:
             return "Vertical line at x = {}.".format(self.point1[0])
         else:
-            return "Line: y = {}x + n".format(round(self.k, 2), round(self.n, 2))
+            return "Line: y = {0}x + {1}".format(round(self.k, 2), round(self.n, 2))
 
     def __iter__(self):
         """
@@ -273,19 +273,23 @@ class Radar(Observer):
             self.distance = distance
             self._lines = (self.left_line, self.right_line, self.distance)
             print(self.left_line, self.right_line)
-
             # Set the distance between lines at given y-val.(height of screen)
             if vertical:  # If lines are vertical, dpp is a constant, pixel difference can be cal. between top points
                 dist_between_lines_px = self.right_line.point1[0] - self.left_line.point1[0]  # Distance in px
                 self.dpp = lambda y: self.distance / dist_between_lines_px
             else:  # If not vertical, distance changes per height and is not constant
                 # Calculate lines intersection with top of screen(y=0) and bottom(y=height) of screen
+                """ TODO equation not working
                 # But we only need the distance in x between the intersections marked as dtx and dbx
                 h = self.video.height
-                dtx = self.right_line.x(0) - self.left_line.x(0)
-                dbx = self.right_line.x(h) - self.right_line.x(h)
+                # Take these two values so the dpp can't get negative
+                top_of_left_point, bottom_of_right_point = self.left_line.point1[1], self.right_line.point2[1]
+                dtx = self.right_line.x(top_of_left_point) - self.left_line.x(top_of_left_point)
+                dbx = self.right_line.x(bottom_of_right_point) - self.left_line.x(bottom_of_right_point)
                 delta_d = dbx - dtx  # order is important, as the sign determines the slope of dpp
-                self.dpp = lambda y: self.distance / ((y / h) * delta_d + dtx)
+                self.dpp = lambda y: self.distance / ((y / h) * delta_d + dtx)"""
+                dist_between_lines_px = self.right_line.point1[0] - self.left_line.point1[0]  # Distance in px
+                self.dpp = lambda y: self.distance / dist_between_lines_px
                 # Explained in the math folder of repo.
 
             # Save data settings to saved_data.json
@@ -325,7 +329,8 @@ class Radar(Observer):
                                     "frame_diff",
                                     "calculated_time",
                                     "speed_mps",
-                                    "speed_kmh"])
+                                    "speed_kmh",
+                                    "avg_size"])
 
     def save_to_file(self, data) -> None:
         """
@@ -384,13 +389,10 @@ class Radar(Observer):
                 "frame_diff": frame_diff,
                 "calculated_time": calculated_time,
                 "speed_mps": speed_mps,
-                "speed_kmh": speed_kmh}
+                "speed_kmh": speed_kmh,
+                "avg_size": obj.average_size()}
         # If print to console/shell
         if self.print_measured:
-            """print("Object timed: ")
-            for key, value in data.items():
-                print("{}: {}".format(key, value), end=", ")
-            print("\n", end="")"""
             time_date = datetime.utcfromtimestamp(int(end_time)).strftime("%H:%M:%S %d-%m-%y (+00:00 UTC)")
             print_str = "Object({}) timed at: {}\n  ".format(obj.id, time_date)
             for key, value in data.items():
@@ -409,7 +411,7 @@ class Radar(Observer):
         tracker = self.obj_trackers[0]  # todo fix --> iterate through all detectors
         # Go trough each currently detected object
         for obj in tracker.objects:
-            curr_pos = obj.center_points[-1]  # Current center position
+            curr_pos = obj.center_points[-1]
             # Check if object is being timed
             if obj in self.curr_measured:
                 # Check if object is out of the measuring area (outside of lines)

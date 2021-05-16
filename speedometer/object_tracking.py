@@ -50,7 +50,7 @@ class Object:
         Function returns the average size of the object
         :return: float: average size(by surface)
         """
-        return sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points
+        return int(sum([rect[0] * rect[1] for rect in self.bounding_rects])/self.num_of_points)
 
     def direction(self) -> tuple:
         """
@@ -110,7 +110,8 @@ class ObjectTracking(Mediator):
     Detects and tracks objects based on different methods that are set when initialized.
     Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
     """
-    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, display=True):
+    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, display=True,
+                 minimum_object_size=400, maximum_object_size=100000):
         """
         :param video: VideoPlayer object -> Is necessary as this class wraps it.
         :param bkg_subtractor: str -> Type of background subtractor to use possible: "MOG", "MOG2"(preset), "GMG"
@@ -129,7 +130,7 @@ class ObjectTracking(Mediator):
         if bkg_subtractor == "MOG2":
             self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=50)
         elif bkg_subtractor == "MOG":
-            self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorMOG()
+            self.bkg_subtractor = self.video.cv2.bgsegm.createBackgroundSubtractorMOG()
         elif bkg_subtractor == "GMG":
             self.bkg_subtractor = self.video.cv2.createBackgroundSubtractorGMG()
 
@@ -138,12 +139,8 @@ class ObjectTracking(Mediator):
             self.tracking = self.euclid  # Set the method to use currently only supports this
 
         # Object parameters describe the category of object by size [min_avg_size, max_avg_size]
-        if object_parameters is None:
-            self.object_parameters = {"human": [300, 600], "cyclist": [601, 750], "car": [750, 2500], "bus": [2500, 4000]}
-            self.minimum_object_size = 300
-        else:
-            self.object_parameters = object_parameters
-            self.minimum_object_size = min([size[0] for size in self.object_parameters.values()])
+        self.minimum_object_size = minimum_object_size
+        self.maximum_object_size = maximum_object_size
         # If min frame diff(used for deleting objects) is not set, calculate it(20% of fps)
         if min_frame_diff is None: 
             self.min_frame_diff = int(self.video.fps * 0.2)
@@ -212,8 +209,8 @@ class ObjectTracking(Mediator):
                 if frame_diff > self.min_frame_diff:  # If frame diff. too big --> remove object from objects list
                     self.objects.remove(obj)
 
-        if len(self.objects) == 0:  # If no current objects exist
-            for detection in detected_objects:
+        if len(self.objects) == 0:  # If no current objects exist, create objects from detections
+            """for detection in detected_objects:
                 # Update number of objects
                 self.all_detected_objects += 1
                 # Create new object
@@ -222,7 +219,14 @@ class ObjectTracking(Mediator):
                                  detection[0:2],
                                  detection[2:4],
                                  detection[4])
-                self.objects.append(new_obj)
+                self.objects.append(new_obj)"""
+            # This does the same as the above
+            # Update number of objects by 1, as the enumerate starts at 0
+            self.objects += list(
+                map(lambda det: Object(self.all_detected_objects + det[0], curr_frame, det[1][0:2], det[1][2:4], det[1][4]),
+                    enumerate(detected_objects, start=1))
+            )
+            self.all_detected_objects += len(detected_objects)
             return
 
         # If objects exist, match them.
@@ -234,35 +238,29 @@ class ObjectTracking(Mediator):
                 self.objects.remove(obj)
                 break
             # Calculate Euclidean distances to match with closest one
-            distances = list()
-            for det in detected_objects:
-                distances.append(euclid_dist(obj.center_points[-1], det[4]))
+            distances = list(map(lambda det: euclid_dist(obj.center_points[-1], det[4]), detected_objects))
             # Get index of closest point
             index_min = min(range(len(distances)), key=distances.__getitem__)
             # If object is in range of the maximum point distance between two consecutive frames
             if distances[index_min] <= self.max_point_distance:
                 # Add detection to object as new point
                 closest_detection = detected_objects[index_min]
-                pos = closest_detection[0:2]
-                bound_rect = closest_detection[2:4]
-                cntr_point = closest_detection[4]
-                obj.add_point(curr_frame, pos, bound_rect, cntr_point)
+                # pos, bound_rect, cntr_point = closest_detection[0:2], closest_detection[2:4], closest_detection[4]
+                obj.add_point(curr_frame, closest_detection[0:2], closest_detection[2:4], closest_detection[4])
                 # Remove detection
                 del detected_objects[index_min]
                 paired += 1
 
             # Check if object hasn't been seen in the last frames(>min_fr_diff) ==> delete object
-            frame_diff = curr_frame - obj.frames[-1]
-            if frame_diff > self.min_frame_diff:
+            if curr_frame - obj.frames[-1] > self.min_frame_diff:
                 self.objects.remove(obj)
                 continue
 
             # Check if object hasn't been moving ==> delete the object
             # Check the last 3 points (3 is enough as objects usually move just slightly)
-            if obj.num_of_points >= 4:
-                if [obj.center_points[-1]] * 3 == obj.center_points[::-1][1:4]:
-                    self.objects.remove(obj)
-                    continue
+            if obj.num_of_points >= 4 and [obj.center_points[-1]] * 3 == obj.center_points[::-1][1:4]:
+                self.objects.remove(obj)
+                continue
 
             # Remaining detections get created as new objects
             for detection in detected_objects:
@@ -280,25 +278,27 @@ class ObjectTracking(Mediator):
         find detections, ...
         """
         # video.roi has to be set by now
-        x, y, w, h = self.video.roi
-        roi = self.video.frame[y: y + h, x: x + w]
+        xr, yr, wr, hr = self.video.roi
+        roi = self.video.frame[yr: yr + hr, xr: xr + wr]
         # Apply roi to background subtractor
         self.mask = self.bkg_subtractor.apply(roi)
         _, self.mask = self.cv2.threshold(self.mask, 254, 255, self.cv2.THRESH_BINARY)  # BINARY
 
         # Find contours
-        contours, _ = self.cv2.findContours(self.mask, self.cv2.RETR_TREE, self.cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = self.cv2.findContours(self.mask, self.cv2.RETR_EXTERNAL, self.cv2.CHAIN_APPROX_SIMPLE)
+        # Other possibility
+        # contours, hierarchy = self.cv2.findContours(self.mask, 1, 2)
 
         detected_objects = []  # A list of contours that fit the parameter of size: [[x, y, w, h, center_point], ...]
         for contour in contours:
             area = self.cv2.contourArea(contour)
-            if area >= self.minimum_object_size:
+            if self.maximum_object_size > area > self.minimum_object_size:
                 # Get bounding rectangle
                 x, y, w, h = self.cv2.boundingRect(contour)
-                # Get center point
-                center_point = (x + w // 2, y + h // 2)
+                # Get center point, add roi values as this is only on mask which is set by roi
                 self.cv2.rectangle(roi, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                self.cv2.circle(roi, center_point, 3, (0, 0, 255), 3)
+                self.cv2.circle(roi, (x + w // 2, y + h // 2), 3, (0, 0, 255), 3)
+                center_point = (x + xr + w // 2, y + yr + h // 2)  # add roi values for upper left corner of roi
                 detected_objects.append([x, y, w, h, center_point])  # Save object to list
 
         self.tracking(detected_objects)  # Pass to the set tracking function
