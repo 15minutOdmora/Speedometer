@@ -278,19 +278,7 @@ class Radar(Observer):
                 dist_between_lines_px = self.right_line.point1[0] - self.left_line.point1[0]  # Distance in px
                 self.dpp = lambda y: self.distance / dist_between_lines_px
             else:  # If not vertical, distance changes per height and is not constant
-                # Calculate lines intersection with top of screen(y=0) and bottom(y=height) of screen
-                """ TODO equation not working
-                # But we only need the distance in x between the intersections marked as dtx and dbx
-                h = self.video.height
-                # Take these two values so the dpp can't get negative
-                top_of_left_point, bottom_of_right_point = self.left_line.point1[1], self.right_line.point2[1]
-                dtx = self.right_line.x(top_of_left_point) - self.left_line.x(top_of_left_point)
-                dbx = self.right_line.x(bottom_of_right_point) - self.left_line.x(bottom_of_right_point)
-                delta_d = dbx - dtx  # order is important, as the sign determines the slope of dpp
-                self.dpp = lambda y: self.distance / ((y / h) * delta_d + dtx)"""
-                dist_between_lines_px = self.right_line.point1[0] - self.left_line.point1[0]  # Distance in px
-                self.dpp = lambda y: self.distance / dist_between_lines_px
-                # Explained in the math folder of repo.
+                self.dpp = lambda y: distance / (self.right_line.x(y) - self.left_line.x(y))  # Distance per pixel
 
             # Save data settings to saved_data.json
             if self.save:
@@ -328,6 +316,7 @@ class Radar(Observer):
                                     "end_frame",
                                     "frame_diff",
                                     "calculated_time",
+                                    "calculated_distance",
                                     "speed_mps",
                                     "speed_kmh",
                                     "avg_size"])
@@ -355,39 +344,39 @@ class Radar(Observer):
         start_index = obj.frames.index(self.curr_measured_dict[obj]["start_frame"])
         end_index = obj.frames.index(self.curr_measured_dict[obj]["end_frame"])
         # Get start end time calculate difference
-        start_time = obj.times[start_index]
-        end_time = obj.times[end_index]
+        start_time, end_time = obj.times[start_index], obj.times[end_index]
         time_diff = end_time - start_time
         # Get direction
         x_dir, y_dir = obj.direction()
         # Get start end frame, calculate diff.
-        start_frame = obj.frames[start_index]
-        end_frame = obj.frames[end_index]
+        start_frame, end_frame = obj.frames[start_index], obj.frames[end_index]
         frame_diff = end_frame - start_frame
         # Calculate time based on frame diff
         calculated_time = self.TPF * frame_diff
+        if calculated_time <= 0.4:  # Prone to zero division errors otherwise, todo make dynamic
+            return
         # Calculate speed in km/h and m/s
-        # Get distance by Distance Per Pixel
-        start_center_point = obj.center_points[start_index]
-        end_center_point = obj.center_points[end_index]
-        distance_in_px = euclid_dist(start_center_point, end_center_point)
-        avg_height = int(start_center_point[1] + end_center_point[1] / 2)
+        # Get distance traveled in x-direction, calculate based on dpp
+        start_center_point, end_center_point = obj.center_points[start_index], obj.center_points[end_index]
+        distance_in_px = abs(start_center_point[0] - end_center_point[0]) # euclid_dist(start_center_point, end_center_point)
+        avg_height = int((start_center_point[1] + end_center_point[1]) / 2)  # y - cordinate
         distance_in_m = distance_in_px * self.dpp(avg_height)  # Doing this with avg. height isn't optimal, as the dist.
-        # changes with height, but assuming the objects are moving horizontally this works fine
+        # changes with height, assuming obj. are moving horizontally this works fine
         # Calculate speed
         speed_mps = round(distance_in_m / calculated_time, 2)
         speed_kmh = round(speed_mps * 3.6, 2)
         # Create data dict.
         data = {"id": obj.id,
-                "start_time": start_time,
-                "end_time": end_time,
-                "time_diff": time_diff,
+                "start_time": round(start_time, 3),
+                "end_time": round(end_time, 3),
+                "time_diff": round(time_diff, 3),
                 "x_dir": x_dir,
                 "y_dir": y_dir,
                 "start_frame": start_frame,
                 "end_frame": end_frame,
                 "frame_diff": frame_diff,
-                "calculated_time": calculated_time,
+                "calculated_time": round(calculated_time, 3),
+                "calculated_distance": round(distance_in_m, 3),
                 "speed_mps": speed_mps,
                 "speed_kmh": speed_kmh,
                 "avg_size": obj.average_size()}

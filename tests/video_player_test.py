@@ -9,9 +9,6 @@ videos path:
 # video.record("test.mp4", 10)
 # video.play()
 
-
-
-
 import cv2
 import os
 import time
