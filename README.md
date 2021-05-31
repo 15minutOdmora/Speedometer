@@ -148,9 +148,57 @@ obt.minimum_object_size = 500  # # Minimum size of detected object in px^2
 video.play()
 ```
 
-Cars and objects now get detected, frame from video of detected object:
+Cars and objects now get detected, frame from video of a detected object:
 
 ![Pic of road from Tapo cam w detected object](/Example/pics/detected_object.png)
 
 
+By going outside I then measured the distance between the two trees shown in the below picture, which was about 13,85m. I then set the measuring area, wich is set by two lines. 
+I can set the measuring are by passing two lines to the Radar class or I can use one of the methods set_distance or set_two_distances. If the camera was set in a birds view the set_distance method would be used. In my case the camera is set from the side and I used the set_two_distances method, this opens a window where we can set two lines wich represent the same distance iin real life, but different distance on screen, this is used for calculating the depth perception on camera frame. 
+
+Initializing the Radar by passing in the video object, load is set to true so the set lines and distance(irl) are later loaded from the saved_data.json file. We set print_measured to true so it prints the data from timed objects to the console. We can pass a file name to the out_file parameter to save measured data to a csv file. 
+
+```python
+# main.py file
+from speedometer import VideoPlayer, ObjectTracking, Radar
+
+rtsp_url = "MyUrlToCam"
+video = VideoPlayer(rtsp_url, fps=15)
+
+obt = ObjectTracking(video)
+obt.maximum_object_size = 10000  # Maximum size of detected object in px^2
+obt.minimum_object_size = 500  # # Minimum size of detected object in px^2
+
+timer = Radar(video, load=True, print_measured=True, out_file="test.csv")
+timer.set_two_distances(distance=13.85, save=True) # if save is set to True it saves the line data to saved_data.json
+
+video.play()
+```
+
+Setting the two lines window, where I know the upper green distance is equal to the bottom one irl:
+
+![Pic of road from Tapo cam setting line distance](/Example/pics/set_two_lines.png)
+
+By setting two lines, if an object travels through the bottom of the screen he would travel the same distance irl as if he would travel on the top of the screen. This removes some errors by the point of view.
+
+Everything now works and I can run the final version of the program: 
+
+```python
+# main.py file
+from speedometer import VideoPlayer, ObjectTracking, Radar
+video = VideoPlayer("MyUrlToCam", fps=15)
+obt = ObjectTracking(video)
+obt.maximum_object_size = 10000  # Maximum size of detected object in px^2
+obt.minimum_object_size = 500  # # Minimum size of detected object in px^2
+timer = Radar(video, load=True, print_measured=True, out_file="test.csv")
+video.play()
+```
+
+The output to console after some objects were timed looked like this:
+
+![Ex. output to console](/Example/pics/example_output_to_console.png)
+
+I then left the RPi running for 10 days with occasional checkups. I've only used the data from 6am to 9pm, as the camera doesn'f film at night(well it does but not well enough for object detection). Data was then cleaned, removing some dates as the wind caused the camera to move, only using data from the time frame, and removing false positives. False positives happened when larger busses passed by and as they're black and white the camera detected it as multiple objects, that data was also removed. Object under the size of 2500 sq. pixels were also removed as those are pedestrians. At the end we are left only with the speeds of cars.
+
+#### Analysis
 
