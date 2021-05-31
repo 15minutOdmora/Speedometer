@@ -51,6 +51,7 @@ Contrary to the variable name, the path can be the following:
 **Methods:**
 
 **select_roi(kwargs)**
+
 This method opens a video frame and you can then set the roi manually using the mouse.
 
 kwargs consist of these possible parameters:
@@ -62,6 +63,7 @@ kwargs consist of these possible parameters:
 If we save the roi, next time we initialize the VideoPlayer it automatically searches for the saved roi if it isn't set. 
 
 **record(filename, sec, codec, fps):**
+
 This will record the given amout of seconds and save it to a file. 
 
 - filename: filename or path of the video to be saved, extension should match the codec
@@ -75,5 +77,80 @@ This will play the video or connect to the live feed. If we are playing a video 
 This should be used after initializing the ObjectTracking and Timer objects. 
 
 
+## Example: A week of approximate car speeds on a school road 
 
-## Example 
+In this example I've set up a cheap home security cam(Tapo c100) at my neighburs balcony. The Tapo cam offers a rtsp stream wich I used. The balcony directly overlooks the road next to the apartment building I live in. The road is a school road, meaning, the speed limit is 30km/h. 
+
+I've then downloaded the project to my Raspberry Pi 4B, and connected the Pi to the same wifi network the security camera uses. 
+
+The setup looks like this: 
+
+<p float="left">
+  <img src="/Example/pics/tapocam.png" width="100" />
+  <img src="/Example/pics/raspberrypi.png" width="200" /> 
+</p>
+
+On my RPi I then created the <code>main.py</code> file, where everything is going to be set and run. I then import the three classes needed and check if the stream works by passing the rtsp url and playing:
+
+```python
+# main.py file
+from speedometer import VideoPlayer, ObjectTracking, Radar
+
+rtsp_url = "MyUrlToCam"
+video = VideoPlayer(rtsp_url)
+
+video.play()
+```
+
+Displayed window from camera: 
+
+![Pic of road from Tapo cam](/Example/pics/pic_of_road_from_tapo_cam.png)
+
+Knowing it works I can then set the other settings. 
+I know the Tapo cam records in 15 fps, and I'd like the windows to be resized to (640, 360) wich is the preset. Objects are moving horizontally so I don't need to rotate the video. 
+
+The Region Of Interest(roi for short) is automatically set to the whole frame, but in this case we only need to look at the road. We can set the roi by using the select_roi method, this will then open a window where we can set the roi rectangle using a mouse. Setting the save parameter to true will save the roi to a json file we can use later(so we dont have to always set the roi, or write it by hand)
+
+```python
+# main.py file
+from speedometer import VideoPlayer, ObjectTracking, Radar
+
+rtsp_url = "MyUrlToCam"
+video = VideoPlayer(rtsp_url, fps=15)
+
+video.select_roi(save=True)
+
+video.play()
+```
+
+Select roi window:
+
+![Select roi frame](/Example/pics/select_roi_frame.png)
+
+
+We can now set the ObjectTracking, initializing it by passing the video instance: 
+
+Also configuring some limitations on objects, such as maximum size and minimum size, I know by other tests that the average size of a car is about 4000 pixels(surface so it's squared pixels) in this case. By setting this limitations we ignore all the false positive objects trat are detected. 
+
+```python
+# main.py file
+from speedometer import VideoPlayer, ObjectTracking, Radar
+
+rtsp_url = "MyUrlToCam"
+video = VideoPlayer(rtsp_url, fps=15)
+
+# video.select_roi(save=True)  comment this out as it is already set
+
+obt = ObjectTracking(video)
+obt.maximum_object_size = 10000  # Maximum size of detected object in px^2
+obt.minimum_object_size = 500  # # Minimum size of detected object in px^2
+
+video.play()
+```
+
+Cars and objects now get detected, frame from video of detected object:
+
+![Pic of road from Tapo cam w detected object](/Example/pics/detected_object.png)
+
+
+
