@@ -1,3 +1,5 @@
+**This README file is still in process**
+
 # Speedometer 
 
 A Python project for tracking vehicles and measuring their approximate speeds from a still camera video feed. Using OpenCV for image manipulation.
