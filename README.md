@@ -13,8 +13,8 @@ I've then downloaded the project to my Raspberry Pi 4B, and connected the Pi to 
 The setup looks like this: 
 
 <p float="left">
-  <img src="/Example/pics/tapocam.jpg" width="100" />
-  <img src="/Example/pics/raspberrypi.jpg" width="200" /> 
+  <img src="/Example/pics/tapocam.jpg" width="200" align="center"/>
+  <img src="/Example/pics/raspberrypi.jpg" width="200" align="center"/> 
 </p>
 
 On my RPi I then created the <code>main.py</code> file, where everything is going to be set and ran. I then imported the three classes and needed and check if the stream works by passing the rtsp url and playing:
