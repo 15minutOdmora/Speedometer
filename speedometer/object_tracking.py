@@ -1,6 +1,7 @@
 from speedometer.Observer import Mediator, Observer
 from speedometer.helper_functions import euclid_dist
 import time
+import numpy as np
 
 
 class Object:
@@ -110,8 +111,8 @@ class ObjectTracking(Mediator):
     Detects and tracks objects based on different methods that are set when initialized.
     Acts as a mediator between the VideoPlayer object and Timer object, wraps VideoPlayer and is wrapped by Timer.
     """
-    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", object_parameters=None, min_frame_diff=None, max_point_distance=None, display=True,
-                 minimum_object_size=400, maximum_object_size=100000):
+    def __init__(self, video, bkg_subtractor="MOG2", tracking="euclid", min_frame_diff=None, max_point_distance=None, display=True,
+                 minimum_object_size=0, maximum_object_size=100000):
         """
         :param video: VideoPlayer object -> Is necessary as this class wraps it.
         :param bkg_subtractor: str -> Type of background subtractor to use possible: "MOG", "MOG2"(preset), "GMG"
@@ -163,6 +164,9 @@ class ObjectTracking(Mediator):
         self.object_counter = 0
         self.all_detected_objects = 0  # Serves as a unique id for objects
 
+        self.prev_frame = None  # todo Remove later
+
+
     @property
     def video(self):
         return self._video
@@ -210,16 +214,6 @@ class ObjectTracking(Mediator):
                     self.objects.remove(obj)
 
         if len(self.objects) == 0:  # If no current objects exist, create objects from detections
-            """for detection in detected_objects:
-                # Update number of objects
-                self.all_detected_objects += 1
-                # Create new object
-                new_obj = Object(self.all_detected_objects,
-                                 curr_frame,
-                                 detection[0:2],
-                                 detection[2:4],
-                                 detection[4])
-                self.objects.append(new_obj)"""
             # This does the same as the above
             # Update number of objects by 1, as the enumerate starts at 0
             self.objects += list(
@@ -293,6 +287,47 @@ class ObjectTracking(Mediator):
         for contour in contours:
             area = self.cv2.contourArea(contour)
             if self.maximum_object_size > area > self.minimum_object_size:
+                # Get bounding rectangle
+                x, y, w, h = self.cv2.boundingRect(contour)
+                # Get center point, add roi values as this is only on mask which is set by roi
+                self.cv2.rectangle(roi, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                self.cv2.circle(roi, (x + w // 2, y + h // 2), 3, (0, 0, 255), 3)
+                center_point = (x + xr + w // 2, y + yr + h // 2)  # add roi values for upper left corner of roi
+                detected_objects.append([x, y, w, h, center_point])  # Save object to list
+
+        self.tracking(detected_objects)  # Pass to the set tracking function
+        # Notify observers (Timer)
+        self.notify()
+        if self.display:
+            self.cv2.imshow("Mask", self.mask)
+
+    def update1(self):  # Testing alternative
+        # video.roi has to be set by now
+        xr, yr, wr, hr = self.video.roi
+        roi = self.video.frame[yr: yr + hr, xr: xr + wr]
+
+        if self.prev_frame is None:
+            self.prev_frame = self.cv2.cvtColor(roi, self.cv2.COLOR_BGR2GRAY)
+            return
+        else:
+            curr_frame = self.cv2.cvtColor(roi, self.cv2.COLOR_BGR2GRAY)
+            self.mask = self.cv2.absdiff(self.prev_frame, curr_frame)
+            self.prev_frame = self.cv2.cvtColor(roi, self.cv2.COLOR_BGR2GRAY)
+
+            ret, self.mask = self.cv2.threshold(self.mask, 150, 255, self.cv2.THRESH_BINARY)
+            kernel = np.ones((3, 3), np.uint8)
+            self.mask = self.cv2.dilate(self.mask, kernel, iterations=3)
+
+        # Find contours
+        contours, _ = self.cv2.findContours(self.mask, self.cv2.RETR_EXTERNAL, self.cv2.CHAIN_APPROX_SIMPLE)
+        # Other possibility
+        # contours, hierarchy = self.cv2.findContours(self.mask, 1, 2)
+
+        detected_objects = []  # A list of contours that fit the parameter of size: [[x, y, w, h, center_point], ...]
+        for contour in contours:
+            print(contour)
+            area = self.cv2.contourArea(contour)
+            if area > self.minimum_object_size:
                 # Get bounding rectangle
                 x, y, w, h = self.cv2.boundingRect(contour)
                 # Get center point, add roi values as this is only on mask which is set by roi

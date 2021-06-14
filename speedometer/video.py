@@ -219,6 +219,14 @@ class VideoPlayer(Subject):
             while cap.isOpened():
                 self.frames += 1
                 self.ret, self.frame = cap.read()
+
+                if not self.ret:
+                    # Re initialize cap
+                    cap = self.cv2.VideoCapture(video_path)
+                    self.frames += 1
+                    print("Frame skipped ...")
+                    continue
+
                 # If rotate is set -> rotate image
                 if self.rotate is not None:
                     self.frame = self.cv2.rotate(self.frame, self.rotate)
