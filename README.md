@@ -4,7 +4,7 @@
 
 A Python project for tracking vehicles and measuring their approximate speeds from a still camera video feed. Using OpenCV for image manipulation.
 
-## Example: A week of approximate car speeds on a school road 
+## Example: 10 days of approximate car speeds on a school road 
 
 In this example I've set up a cheap home security cam(Tapo c100) at my neighburs balcony. The Tapo cam offers a rtsp stream wich I used. The balcony directly overlooks the road next to the apartment building I live in. The road is a school road, meaning, the speed limit is 30km/h. 
 
@@ -129,6 +129,25 @@ I then left the RPi running for 10 days with occasional checkups. I've only used
 
 #### Analysis
 
+After 10 days of measuring from 6am - 9pm there was a total of 8327 measured vehicles. Measured data was filtered down to the timeframe [6am, 9pm] because of false postives happening in the dark(between the hours [9pm - 6pm]). 
+
+**Some basic data properties:** 
+
+![Picture of data properties](/Example/pics/basic_data_properties.png)
+
+**If we sort the data based on speed(descending):** 
+
+![Picture of data sorted by speed](/Example/pics/data_sorted_by_speed.png)
+
+**Histogram displaying speed distribution:**
+
+![Picture of histogram speed distribution](/Example/pics/speed_histrogram.png)
+
+Notice the normal distribution with a slight postive skeewness. The vehicles that are parked around the area(N = cca. 150) might explain the slight deviation to the left, as cars are accelarating/breaking around the area resulting in slower speeds. The part marked red are speeds exceading 35 km/h, about 12.4% of the total population.
+
+**Car distribution per time:**
+
+**Average speed per time of day
 
 
 ## How it works
